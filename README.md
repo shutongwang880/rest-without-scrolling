@@ -1,30 +1,40 @@
-# Pause — Rest Without Scrolling
+# Pause / Rest without scrolling
 
-A responsive, English-language interactive prototype for the DECO3800 student-led break concept.
+An English-language, responsive prototype for DECO3800. The central interaction is choosing rest that matches a student's current need, with an explicit route for someone who notices they have been scrolling.
 
-Open `dist/index.html` directly, or serve `dist/` with any static HTTP server. There is no installation or build step.
+## Run
 
-## Walkthrough
+Open `dist/index.html` directly, or serve `dist/` using any static HTTP server. No installation or build is needed. The interface uses local system fonts and no remote assets.
 
-1. Optionally choose a current feeling, select a break activity, and choose 3, 5, 10 minutes or no timer.
-2. Start the break. Extend it, pause its timer, switch activities, or turn support off.
-3. Use “Prototype · preview the check-in” to demonstrate the timed prompt without waiting. Actual timers use elapsed wall-clock time, including time away from the tab.
-4. Optionally reflect. Choose more rest, return to study, change the plan, finish studying, or dismiss the check-in entirely.
-5. Open “Your controls” to inspect information use or disable support.
+## Two entry points
 
-## Boundaries
+- **I want a break:** optionally identify a need, choose a relevant break or an activity of your own, and optionally note a natural moment to reconsider. Scrolling deliberately is always a valid option.
+- **I've been scrolling:** voluntarily check whether the current break still fits. Keep scrolling, choose another break, revise the study plan, return to studying, or finish for the day. Reflection is optional.
 
-- No device locking, browser activity monitoring, app detection, push notifications, sound, productivity scores, or automatic return to study.
-- Choices and reflections are held only in tab memory. Reloading clears them. There is no database or analytics.
-- Optional Google Fonts are requested for typography; system fonts are the offline fallback.
-- A timed check-in only appears inside this page. Closing the tab stops the prototype. Browser background throttling may delay the visible check-in until the tab is opened again.
-- WebMCP exposes a read-only `get_break_state` tool when supported. Support is optional; the entire interface works without it.
+Suggested activities differ for wanting less input, novelty, company, distance from a task, and uncertainty. A student's own choice is always available. Activities outside this page are carried out by the student; the prototype does not open or control other apps.
 
-## Suggested usability tasks
+## Timing and autonomy
 
-- “You feel tired while studying. Choose a break that suits you.”
-- “The planned break is over, but you still want to rest. What would you do?”
-- “You decide to change your study plan.”
-- “You no longer want the tool to prompt you.”
+There is no timer by default and no countdown display. An optional setting schedules one quiet, in-page check-in after approximately 5, 10, or 15 minutes. The page uses wall-clock time so it can show a requested prompt after returning from a background tab. Browser throttling may delay its display. Closing the tab ends the prototype.
 
-Ask whether the suggestions or check-in felt supportive or pressuring, whether skipping reflection was clear, and whether the participant understood the information used. This prototype tests those questions; it does not establish that the intervention improves wellbeing.
+Natural stopping cues such as “when the song ends” are personal notes only. They are never detected or enforced. Continuing a break or dismissing a check-in cancels further reminders. Support can be switched off at any point.
+
+## Data and boundaries
+
+Choices and notes exist only in tab memory. Reloading clears them. There are no analytics, accounts, logs, device locks, app monitoring, push notifications, or automatic redirection to study.
+
+A read-only `get_break_state` WebMCP tool is registered only in supported browsers. Native WebMCP validation was unavailable in this environment; ordinary interface operation does not depend on it.
+
+## Validation
+
+Run `node --test model.test.cjs`. Eight tests cover different needs, default untimed breaks, one-time reminders, cancellation and opt-out, voluntary scrolling, all next-step choices, custom text and validation, and screen-template generation with escaped personal text. Template checks use a minimal DOM stub and are not browser layout or end-to-end checks. Browser automation was not run because authorization was declined earlier in the thread.
+
+## Walkthrough prompts
+
+1. You want to feel connected to someone while taking a study break. Choose what you want to do.
+2. You notice you have been scrolling longer than you intended. Decide what feels right now.
+3. You deliberately want to keep scrolling. Continue without being pushed back to study.
+4. Choose a natural stopping cue without setting a timer.
+5. Cancel a requested check-in or switch support off.
+
+Ask whether the options reflect the student's need, whether the interaction feels patronising, whether the stopping cue is useful, and whether continuing to rest feels equally legitimate. The prototype supports testing these questions; it does not establish wellbeing benefits.
