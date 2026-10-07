@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#183f35"><meta name="description" content="A little space to rest. Choose a break on your own terms, without pressure to return.">
+<title>Pause — Rest Without Scrolling</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23183f35'/%3E%3Cpath d='M24 19v26M40 19v26' stroke='%23d9f18c' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="./" aria-label="Pause home"><span class="brand-mark" aria-hidden="true">Ⅱ</span> pause<span class="brand-period">.</span></a>
+    <div class="side-story"><span class="eyebrow">REST WITHOUT SCROLLING</span><h1>A little space.<br>A softer pace.</h1><p>You don’t have to earn a break.<br>Let this moment be yours.</p><div class="orbit" aria-hidden="true"><div></div><span>just be.</span></div></div>
+    <div class="side-bottom"><span class="small-icon" data-icon="shield"></span><p>Your pace. Your choice.<br><span>No tracking. No scores. No pressure.</span></p></div>
+  </aside>
+  <div class="workspace">
+    <header><span class="header-label">A MOMENT FOR YOU</span><button class="quiet settings-button" id="settings-open"><span data-icon="sliders"></span><span>Your controls</span></button></header>
+    <main id="main" tabindex="-1"></main>
+    <footer><span><span class="footer-dot"></span> Rest is part of the process.</span><span>STUDENT-LED · ALWAYS OPTIONAL</span></footer>
+  </div>
+</div>
+<dialog id="settings"><div class="dialog-top"><span class="eyebrow">YOUR CONTROLS</span><button class="icon-button" id="settings-close" aria-label="Close controls">×</button></div><h2>You’re in charge.</h2><p>Pause only uses the choices you make here and the time since you started this break.</p><div class="privacy-note"><span data-icon="shield"></span><div><strong>Your break stays yours.</strong><p>No screen monitoring, app history, account, or shared activity. Your selections stay in this tab and reset when you reload.</p></div></div><label class="switch-row"><span><strong>Gentle check-ins</strong><small>One quiet message on this page. No sound or push notifications.</small></span><input type="checkbox" role="switch" id="global-checkin"></label><button class="secondary full" id="support-off">Turn support off</button><p class="fine">You can leave this page whenever you like. Nothing is locked.</p></dialog>
+<div id="toast" role="status" class="toast" hidden></div>
+<script src="app.js"></script>
+</body></html>
