@@ -26,29 +26,27 @@ const options={
 };
 const scroll={id:'scroll',title:'Scroll, on purpose',description:'That can be the break you want, too.',instruction:'Use whichever app you had in mind. You can choose a stopping point, or leave it open. This page won’t watch or block it.',cue:'After this video or thread'};
 const own={id:'own',title:'Something of my own',description:'Choose what works for you.',instruction:'You can make your own kind of break.',cue:''};
-function create(){return {view:'needs',need:null,selected:null,cue:'',custom:'',reminder:0,deadline:null,source:'self',feedback:'',nextNote:'',outcome:null,enabled:true};}
-function getOptions(s){return [...(options[s.need]||options.unsure),scroll,own];}
-function transition(s,action,now=Date.now()){
- const n={...s}; const fail=()=>{throw new Error('Invalid break action: '+action.type)};
+function create(){return {view:'choose',need:'unsure',selected:null,custom:'',feedback:'',decision:null,enabled:true};}
+function getOptions(s){
+ const list=[...(options[s.need]||options.unsure),options['switch-off'][1],scroll,own];
+ return list.filter((x,i)=>list.findIndex(y=>y.id===x.id)===i);
+}
+function transition(s,action){
+ const n={...s};const fail=()=>{throw new Error('Invalid break action: '+action.type)};
  switch(action.type){
- case'ENTRY':if(!['needs','scrolling'].includes(action.value))fail();return {...create(),view:action.value==='scrolling'?'checkin':'needs',selected:action.value==='scrolling'?scroll:null};
- case'NEED':if(!needs.some(x=>x.id===action.value))fail();n.need=action.value;n.view='options';break;
- case'SKIP':n.need='unsure';n.view='options';break;
- case'SELECT':{const selected=getOptions(s).find(x=>x.id===action.value);if(!selected)fail();n.selected=selected;n.cue=selected.cue;n.custom='';n.reminder=0;n.deadline=null;n.view='plan';break;}
- case'START':if(!s.selected||![0,5,10,15].includes(action.minutes)||typeof action.cue!=='string'||typeof action.custom!=='string')fail();if(s.selected.id==='own'&&!action.custom.trim())fail();n.cue=action.cue.slice(0,160).trim();n.custom=action.custom.slice(0,160).trim();n.reminder=action.minutes;n.deadline=action.minutes?now+action.minutes*60000:null;n.view='away';n.enabled=true;n.feedback='';break;
- case'CHECKIN':n.view='checkin';n.source='self';n.deadline=null;n.reminder=0;n.feedback='';break;
- case'TICK':if(s.enabled&&s.view==='away'&&s.deadline!==null&&now>=s.deadline){n.view='checkin';n.source='timed';n.deadline=null;n.reminder=0;n.feedback='';}break;
- case'FEEDBACK':if(!['yes','unsure','no'].includes(action.value))fail();n.feedback=action.value;break;
- case'CONTINUE':n.view='away';n.selected=s.selected||scroll;n.deadline=null;n.reminder=0;n.feedback='';break;
- case'RETHINK':n.view='needs';n.deadline=null;n.reminder=0;n.need=null;break;
- case'BACK':n.view=action.value==='options'?'options':'needs';break;
- case'NEXT':if(!['return','plan','end'].includes(action.value))fail();n.outcome=action.value;n.view=action.value==='plan'?'new-plan':'done';n.deadline=null;break;
- case'SAVE_PLAN':if(typeof action.value!=='string')fail();n.nextNote=action.value.slice(0,500).trim();n.outcome='plan';n.view='done';break;
- case'CANCEL_REMINDER':n.deadline=null;n.reminder=0;break;
- case'OFF':n.enabled=false;n.deadline=null;n.reminder=0;n.view='off';break;
+ case'NEED':if(s.view!=='choose'||!needs.some(x=>x.id===action.value))fail();n.need=action.value;n.selected=null;n.custom='';break;
+ case'SELECT':{if(s.view!=='choose')fail();const chosen=getOptions(s).find(x=>x.id===action.value);if(!chosen)fail();n.selected=chosen;n.custom='';break;}
+ case'START':if(s.view!=='choose'||!s.selected||typeof action.custom!=='string')fail();if(s.selected.id==='own'&&!action.custom.trim())fail();n.custom=action.custom.trim().slice(0,160);n.view='rest';n.feedback='';n.decision=null;break;
+ case'RETURN':if(s.view!=='rest')fail();n.view='next';break;
+ case'ALREADY':return {...create(),view:'next',selected:scroll};
+ case'FEEDBACK':if(s.view!=='next'||!['helped','same','more'].includes(action.value))fail();n.feedback=action.value;break;
+ case'CONTINUE':if(s.view!=='next')fail();n.view='rest';n.decision=null;break;
+ case'CHANGE':n.view='choose';n.selected=null;n.custom='';n.decision=null;n.feedback='';break;
+ case'DECIDE':if(s.view!=='next'||!['study','plan','finish'].includes(action.value))fail();n.decision=action.value;break;
+ case'OFF':n.enabled=false;n.view='off';break;
  case'RESET':return create();
  default:fail();
  }return n;
 }
-const api={needs,getOptions,create,transition,scroll};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PauseModel=api;
+const api={needs,getOptions,create,transition};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PauseModel=api;
 })(typeof window!=='undefined'?window:globalThis);
