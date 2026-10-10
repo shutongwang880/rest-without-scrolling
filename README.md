@@ -1,32 +1,44 @@
-# Pause / Rest without scrolling
+# Rest Without Scrolling
 
-An English-language prototype for DECO3800. It helps a student set their own ending before a break, leave without monitoring, return through a saved study step, and optionally learn from private reflections.
+A desktop-first, single-page prototype for university students taking breaks during self-directed study. It uses plain HTML, CSS and JavaScript with no backend, package install, tracking or network requests.
 
-## Workflow
+## Main flow
 
-1. **Set a study intention.** The student may enter what they are doing and one small next step. Remembering this on the device is optional.
-2. **Agree on the break.** Choose an optional feeling, a suggested or usual break, doing nothing, deliberate scrolling, or a personal activity. Choose an ending: 5/10/15 minutes, one lap, finishing a drink, a personal event, or returning independently.
-3. **Authorize support.** A silent one-time page reminder is available only for timed endings and is off by default. Event endings are never detected. Starting the break snapshots the student's study intention.
-4. **Take the break.** The student can leave the page. There is no lockout, countdown, app tracking, repeated prompt, or automatic return to study.
-5. **Return and decide.** The return card shows the saved task and next step. Five equally styled choices remain available: keep resting, try another break, return to study, adjust the plan, or finish studying.
-6. **Reflect optionally.** A student may report restoration and whether the break ran longer than wanted. Only explicitly saved reflections enter the private device summary.
+1. **Study session:** edit “What I’m doing” and “Next step”. Both fields are seeded for demos and auto-save locally. Select **Take a break** or press **B**.
+2. **Break:** Version A opens immediately after one click. Nothing is blocked and there is no timer, countdown or elapsed-time display. **I’m back** is always available.
+3. **Optional break choices:** three collapsed sections allow a student to choose a feeling and rest type, choose an ending, and authorize one quiet reminder. All are optional. “Use my phone”, “Do nothing” and a personal idea have the same visual weight as other choices.
+4. **Back:** the saved study intention appears first. Five identical options support more rest, different rest, study, a changed plan, or ending study.
+5. **Optional note:** a self-reported restoration and duration answer can be saved to the private summary or skipped.
 
-## Private summary
+## Reminder behavior
 
-Saved reflections use browser-local storage. Activity-level patterns appear only after three saved reflections for that activity. Comparisons about breaks running long appear only when both open-ended and bounded groups have at least three self-reported answers. The summary describes answers and does not claim a causal effect.
+A reminder is available only for 5, 10 or 15 minute endings and is off by default. When enabled, the app explains why browser permission is needed before requesting it. The reminder fires once, silently, uses the requested neutral copy, changes the page title once, and appears as a dismissible in-page bar. Returning or dismissing resets the title and prevents repetition.
 
-Students may disable reflection or saving, delete individual reflections, delete all reflection history, remove usual breaks, or delete all Pause data. Turning saving off prevents future saves and leaves existing entries available for deletion.
+Library mode uses a dimmer palette, removes animation, and keeps reminders inside the page. Pausing support hides the optional break-assist sections and cancels active reminders while preserving **Take a break** and **I’m back**.
 
-## Data boundaries
+## Private patterns
 
-Pause uses only student-entered intentions, break choices, endings, reminder consent, and optional reflection answers. It does not read other apps, browsing, messages, screen content, or actual device activity. A natural ending such as “after one lap” is a note for the student and is not detected. Timed reminders use the local clock and only appear while this page is available.
+Saved notes stay in localStorage. Insight cards appear only when a category has at least three saved notes. The language reports counts without ranking, diagnosis or causal claims. History deletion has a confirmation step.
 
-Anyone using the same browser profile may be able to see locally saved information. The interface states this before saving. Unsaved in-progress state clears on reload. No data is sent to a server by this prototype.
+## Researcher mode
 
-## Run and verify
+Press **Shift+R** to open the researcher panel:
 
-Open `dist/index.html` or serve `dist/` with any static server. No build or dependency installation is required.
+- **Version A: One-click** starts the break immediately.
+- **Version B: Set up first** asks about rest type and ending before starting.
+- Optional local logging records only version, whether an optional section was opened, time from the initial break click to **I’m back**, and the selected return option.
+- Logs can be exported as JSON or deleted.
 
-Run `node --test model.test.cjs`. Twelve tests cover intention snapshots, reminder consent and single delivery, event boundaries, all five return choices, usual breaks, custom input validation, explicit reflection records, evidence thresholds, local persistence and deletion, blocked storage, and safe screen rendering. Browser automation was not run following the earlier authorization decline.
+Research logs are separate from student notes and are disabled by default.
 
-An optional read-only WebMCP `get_break_state` tool exposes the visible stage, activity, and reminder state in supported browsers. It does not expose intentions or reflection history, and the interface does not depend on it.
+## Privacy and accessibility
+
+All persistent data is stored in localStorage. The app does not read other tabs, apps, browsing, messages or screen content. It uses no analytics and makes no network calls. Controls explain what is stored and shared, and allow support, reminders, notes and library mode to be changed.
+
+Controls meet a 44px target minimum, have visible keyboard focus, use short neutral copy, and respect reduced-motion preferences. The UI uses local system fonts with Inter preferred, embedded line icons, and the specified warm background, sage and muted sky palette.
+
+## Verification
+
+Run the JavaScript syntax checks and then node --test model.test.cjs.
+
+The 13 checks cover seeded data, local persistence and sanitization, feeling-based suggestions, one-click break state, reminder consent, private-note validation, insight thresholds, component structure, silent notification behavior, researcher logging, copy rules, accessibility tokens and local assets.

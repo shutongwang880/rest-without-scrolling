@@ -1,70 +1,150 @@
-const {test}=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const vm=require('node:vm');
-const M=require('./dist/model.js'),S=require('./dist/storage.js');
-const go=(s,type,value,extra={},now=1000)=>M.transition(s,{type,value,...extra},now);
-function prepared(){let s=go(M.create(),'INTENTION',null,{task:'Essay intro',next:'Write the first sentence'});s=go(s,'BEGIN');return go(s,'SELECT','scroll');}
-function start(boundary='self',remind=false){let s=go(prepared(),'BOUNDARY',boundary);if(boundary==='event')s={...s,event:'After the song'};if(remind)s=go(s,'REMIND',true);return go(s,'START',null,{id:'break-1'});}
-const memory=()=>{let entries=new Map();return{getItem:k=>entries.get(k)||null,setItem:(k,v)=>entries.set(k,v),removeItem:k=>entries.delete(k)}};
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const Model = require('./dist/model.js');
+const Store = require('./dist/storage.js');
 
-test('Starting snapshots the self-defined study intention and defaults to no reminder',()=>{
- const s=start();assert.deepEqual(s.snapshot,{task:'Essay intro',next:'Write the first sentence'});assert.notEqual(s.snapshot,s.intention);assert.equal(s.deadline,null);assert.equal(s.remind,false);
- const changed=go(s,'INTENTION',null,{task:'Reading',next:'Page 10'});assert.equal(changed.snapshot.task,'Essay intro');assert.equal(changed.intention.task,'Reading');
+const source = fs.readFileSync('./dist/app.js', 'utf8');
+const css = fs.readFileSync('./dist/style.css', 'utf8');
+const html = fs.readFileSync('./dist/index.html', 'utf8');
+
+function memoryStorage() {
+  const values = new Map();
+  return {
+    getItem: key => values.has(key) ? values.get(key) : null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key)
+  };
+}
+
+test('new local data is seeded for an immediate demo and has no history', () => {
+  const data = Store.defaults();
+  assert.equal(data.session.task, 'Essay draft, intro');
+  assert.equal(data.session.next, 'Write the first sentence of paragraph 2');
+  assert.equal(data.settings.quietReminders, false);
+  assert.equal(data.settings.optionalNotes, true);
+  assert.equal(data.history.length, 0);
+  assert.equal(data.researcher.version, 'A');
 });
-test('Time boundaries require separate reminder consent; event endings are never detected',()=>{
- for(const b of ['self','5','10','15','lap','drink','event']){const s=start(b);assert.equal(s.deadline,null);assert.equal(go(s,'TICK',null,{},1e15).notice,false);}
- assert.throws(()=>go(prepared(),'REMIND',true));
- let s=go(prepared(),'BOUNDARY','5');s=go(s,'REMIND',true);s=go(s,'BOUNDARY','drink');assert.equal(s.remind,false);
+
+test('storage round-trips only approved local fields', () => {
+  const storage = memoryStorage();
+  const data = Store.defaults();
+  data.lastRest = { type: 'walk', label: 'Walk', ownIdea: '', feeling: 'tired', ending: '10', remind: true };
+  data.history.push({ id: 'n1', restType: 'walk', label: 'Walk', ending: '10', restoring: 'yes', durationReport: 'right', savedAt: 10 });
+  data.researcher.logs.push({ id: 'l1', version: 'A', optionalOpened: true, timeToBackMs: 900, outcome: 'study', recordedAt: 20 });
+  assert.equal(Store.save(storage, data), true);
+  assert.deepEqual(Store.load(storage).data, data);
 });
-test('A timed reminder appears exactly once, stays on the break screen, and can be ignored',()=>{
- const s=start('5',true);assert.equal(s.deadline,301000);assert.equal(go(s,'TICK',null,{},300999).notice,false);
- const shown=go(s,'TICK',null,{},1e6);assert.equal(shown.notice,true);assert.equal(shown.deadline,null);assert.equal(shown.view,'rest');
- const dismissed=go(shown,'DISMISS');assert.equal(go(dismissed,'TICK',null,{},1e15).notice,false);
+
+test('invalid imported history, choices and logs are discarded', () => {
+  const raw = Store.defaults();
+  raw.lastRest = { type: 'unknown', ending: 'never' };
+  raw.history = [{ id: 'x', restType: 'walk', ending: '10', restoring: 'score-10', durationReport: 'right' }];
+  raw.researcher.logs = [{ id: 'x', version: 'C', timeToBackMs: -2, outcome: 'wrong' }];
+  const data = Store.clean(raw);
+  assert.equal(data.lastRest, null);
+  assert.equal(data.history.length, 0);
+  assert.equal(data.researcher.logs.length, 0);
 });
-test('Returning, cancelling and turning off all disarm reminders; continuing rest does not rearm',()=>{
- for(const action of ['RETURN','CANCEL_REMINDER','OFF']){const s=go(start('10',true),action);assert.equal(s.deadline,null);assert.equal(go(s,'TICK',null,{},1e15).notice,false);}
- const more=go(go(start('5',true),'RETURN'),'CONTINUE');assert.equal(more.view,'rest');assert.equal(more.deadline,null);
+
+test('feeling-based suggestions change without ranking one correct rest', () => {
+  const groups = Model.FEELINGS.map(item => Model.suggestions(item.id).map(rest => rest.id));
+  assert.equal(new Set(groups.map(group => group.join(','))).size, 5);
+  groups.forEach(group => assert.equal(group.length, 3));
+  assert.ok(Model.RESTS.nothing);
+  assert.ok(Model.RESTS.own);
+  assert.ok(Model.RESTS.phone);
 });
-test('All five next options are available without reflection, and changing plan keeps the return snapshot',()=>{
- const n=go(start(),'RETURN');assert.equal(n.feedback,'');assert.equal(go(n,'CONTINUE').view,'rest');assert.equal(go(n,'CHANGE').view,'choose');
- for(const decision of ['study','plan','finish'])assert.equal(go(n,'DECIDE',decision).decision,decision);
- const changed=go(go(n,'DECIDE','plan'),'INTENTION',null,{task:'Read',next:'Open chapter 2'});assert.equal(changed.snapshot.task,'Essay intro');assert.equal(changed.intention.next,'Open chapter 2');
+
+test('one-click break snapshots the student intention and starts without a timer', () => {
+  const data = Store.defaults();
+  const state = Model.initialState(data);
+  const next = Model.startBreak(state, data, 1000);
+  assert.equal(next.view, 'break');
+  assert.deepEqual(next.activeBreak.intention, data.session);
+  assert.notEqual(next.activeBreak.intention, data.session);
+  assert.equal(next.activeBreak.reminderAt, null);
+  assert.equal(next.activeBreak.remind, false);
 });
-test('Quick-start favorites reuse an explicit ending, never a reminder, and start a new break',()=>{
- const f={activity:'scroll',custom:'',boundary:'5',event:''};const s=go(prepared(),'FAVORITE',null,{favorite:f});assert.equal(s.remind,false);assert.equal(s.boundary,'5');assert.equal(go(s,'START',null,{id:'fav-1'}).deadline,null);
- assert.throws(()=>go(s,'FAVORITE',null,{favorite:{...f,activity:'unknown'}}));
+
+test('only explicitly enabled minute endings create a reminder time', () => {
+  const data = Store.defaults();
+  for (const ending of ['walk', 'drink', 'self']) {
+    const state = Model.initialState(data);
+    state.setup = { ...state.setup, ending, remind: true };
+    const next = Model.startBreak(state, data, 1000);
+    assert.equal(next.activeBreak.reminderAt, null);
+    assert.equal(next.activeBreak.remind, false);
+  }
+  for (const ending of ['5', '10', '15']) {
+    const state = Model.initialState(data);
+    state.setup = { ...state.setup, ending, remind: true };
+    const next = Model.startBreak(state, data, 1000);
+    assert.equal(next.activeBreak.reminderAt, 1000 + Number(ending) * 60000);
+  }
 });
-test('Personal activity and stopping-point validation prevents empty commitments',()=>{
- const p=go(go(M.create(),'BEGIN'),'SELECT','own');assert.throws(()=>go(p,'START',null,{id:'1'}));
- const custom={...p,custom:'Take a walk',boundary:'event',event:''};assert.throws(()=>go(custom,'START',null,{id:'1'}));
- assert.equal(go({...custom,event:'After one lap'},'START',null,{id:'1'}).view,'rest');
+
+test('private notes require both self-reported answers', () => {
+  const data = Store.defaults();
+  let state = Model.startBreak(Model.initialState(data), data, 1000);
+  state.note = { restoring: 'yes', durationReport: '', saved: false };
+  assert.throws(() => Model.makeHistoryRecord(state));
+  state.note.durationReport = 'longer';
+  const record = Model.makeHistoryRecord(state, 2000);
+  assert.equal(record.restoring, 'yes');
+  assert.equal(record.durationReport, 'longer');
+  assert.deepEqual(Object.keys(record).sort(), ['durationReport','ending','id','label','restType','restoring','savedAt']);
 });
-test('Records require actual reflection and retain only declared fields; overrun is explicitly self-reported',()=>{
- const n=go(start(),'RETURN');assert.throws(()=>M.record(n));const r=M.record(go(n,'FEEDBACK','some'));
- assert.equal(r.overrun,null);assert.equal(r.rating,'some');assert.deepEqual(Object.keys(r).sort(),['activity','boundary','ending','id','intention','overrun','rating','title']);
- assert.equal(M.record(go(go(n,'FEEDBACK','yes'),'OVERRUN','yes')).overrun,'yes');
+
+test('patterns stay empty below three notes and remain neutral counts', () => {
+  const note = { id: '1', restType: 'walk', label: 'Walk', ending: 'self', restoring: 'yes', durationReport: 'right', savedAt: 1 };
+  assert.deepEqual(Model.insights([note, { ...note, id: '2' }]), []);
+  const cards = Model.insights([note, { ...note, id: '2', restoring: 'bit' }, { ...note, id: '3', restoring: 'not' }]);
+  assert.equal(cards.length, 1);
+  assert.match(cards[0].text, /1 of 3/);
+  assert.doesNotMatch(cards[0].text, /better|worse|should|failed/i);
 });
-test('Summary uses saved answers only and withholds activity patterns below three observations',()=>{
- const r=M.record(go(go(start(),'RETURN'),'FEEDBACK','yes'));assert.equal(M.summary([]).activities.length,0);assert.equal(M.summary([r,r]).activities.length,0);
- const stats=M.summary([r,{...r,rating:'some'},{...r,rating:'not'}]);assert.deepEqual(stats.activities[0],{title:'Scroll, on purpose',total:3,restored:1});assert.equal(stats.open.length,0);
- const comparison=M.summary([{...r,overrun:'yes'},{...r,boundary:'5',overrun:'no'}]);assert.equal(comparison.open.length,1);assert.equal(comparison.bounded.length,1);
+
+test('phone-without-end insight also waits for three saved notes', () => {
+  const note = { id: '1', restType: 'phone', label: 'Use my phone', ending: 'self', restoring: 'bit', durationReport: 'longer', savedAt: 1 };
+  const cards = Model.insights([note, { ...note, id: '2' }, { ...note, id: '3', durationReport: 'right' }]);
+  assert.ok(cards.some(card => card.title === 'Phone breaks without an end point'));
+  assert.ok(cards.some(card => /2 of 3/.test(card.text)));
 });
-test('Saving preferences, favorites and reflections survive reload; clearing removes everything',()=>{
- const mem=memory();const d=S.empty();d.prefs.history=true;d.prefs.rememberIntent=true;d.intention={task:'Essay',next:'First sentence'};d.favorites=[{id:'f',activity:'scroll',title:'Scroll',custom:'',boundary:'5',event:''}];d.records=[M.record(go(go(start(),'RETURN'),'FEEDBACK','yes'))];
- assert.equal(S.save(mem,d),true);assert.deepEqual(S.load(mem).data,d);d.prefs.history=false;assert.equal(S.save(mem,d),true);assert.equal(S.load(mem).data.records.length,1);
- assert.equal(S.clear(mem),true);assert.deepEqual(S.load(mem).data,S.empty());
+
+test('the implementation exposes the requested component structure and five equal outcomes', () => {
+  for (const name of ['StudyView','BreakView','BackView','SummaryView','ControlsPanel','ResearcherPanel']) {
+    assert.match(source, new RegExp('function ' + name + '\\('));
+  }
+  Model.OUTCOMES.forEach(item => assert.match(source, new RegExp(item.id)));
+  assert.equal(Model.OUTCOMES.length, 5);
 });
-test('Corrupt or unavailable storage is handled without claiming success',()=>{
- const unavailable={getItem(){throw Error('blocked')},setItem(){throw Error('full')},removeItem(){throw Error('blocked')}};assert.equal(S.load(unavailable).available,false);assert.equal(S.save(unavailable,S.empty()),false);assert.equal(S.clear(unavailable),false);
- const mem=memory();mem.setItem(S.KEY,'not json');assert.equal(S.load(mem).available,false);
- const raw={...S.empty(),favorites:[{id:'a',activity:'unknown',boundary:'self'},{id:'b',activity:'own',custom:'',boundary:'self'}]};assert.equal(S.clean(raw).favorites.length,0);
+
+test('reminder implementation is silent, one-time, dismissible and library-aware', () => {
+  assert.match(source, /new Notification\('Whenever you’re ready'/);
+  assert.match(source, /silent: true/);
+  assert.match(source, /active\.reminded = true/);
+  assert.match(source, /data\.settings\.libraryMode/);
+  assert.match(source, /dismiss-reminder/);
+  assert.match(source, /document\.title = 'Whenever you’re ready'/);
 });
-test('Screen and summary templates render without a browser; custom text cannot become markup',()=>{
- const els=new Map();const el=k=>{if(!els.has(k))els.set(k,{innerHTML:'',addEventListener(){},focus(){},setAttribute(){},removeAttribute(){},querySelectorAll(){return[]},querySelector(){return null}});return els.get(k)};
- const mem=memory();const context=vm.createContext({window:{PauseModel:M,PauseStorage:S,localStorage:mem,addEventListener(){},scrollTo(){}},document:{querySelector:el,querySelectorAll(){return[]},addEventListener(){}},setInterval(){},setTimeout(){},clearTimeout(){},crypto:{randomUUID:()=> 'test'},console});
- vm.runInContext(fs.readFileSync('./dist/app.js','utf8'),context);
- const n=go(start(),'RETURN');const screens=[M.create(),prepared(),start(),n,...['study','plan','finish'].map(v=>go(n,'DECIDE',v)),go(n,'OFF')];
- for(const current of screens){context.current=current;vm.runInContext('state=current;render(false)',context);assert.match(el('#main').innerHTML,/<h1>/);assert.doesNotMatch(el('#main').innerHTML,/undefined/);}
- context.current={...start(),custom:'<img src=x onerror=alert(1)>'};vm.runInContext('state=current;render(false);updatePanels()',context);assert.ok(el('#main').innerHTML.includes('&lt;img'));assert.ok(!el('#main').innerHTML.includes('<img'));
+
+test('researcher mode records only the declared usability fields and exports JSON', () => {
+  for (const field of ['version','optionalOpened','timeToBackMs','outcome']) assert.match(source, new RegExp(field));
+  assert.match(source, /shiftKey && event\.key\.toLowerCase\(\) === 'r'/);
+  assert.match(source, /application\/json/);
+  assert.match(source, /delete-logs/);
+});
+
+test('copy, assets and styling satisfy the no-network and accessibility constraints', () => {
+  assert.doesNotMatch(html, /<(?:script|link)[^>]+(?:src|href)="https?:\/\//i);
+  assert.doesNotMatch(source + html, /distracted|wasted|back on track|failed|you should|don’t forget|don't forget/i);
+  assert.match(css, /--bg: #F6F4EF/);
+  assert.match(css, /--sage: #7FA48F/);
+  assert.match(css, /--sky: #A9C4D6/);
+  assert.match(css, /--radius: 20px/);
+  assert.match(css, /min-height: 44px/);
+  assert.match(css, /prefers-reduced-motion/);
+  for (const asset of ['style.css','model.js','storage.js','app.js']) assert.match(html, new RegExp(asset.replace('.', '\\.')));
 });

@@ -1,18 +1,20 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#faf9f6"><meta name="description" content="Choose your own ending for a break, keep a next step to return to, and learn from optional private reflections.">
-<title>Pause / Rest without scrolling</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23b52e1b'/%3E%3Cpath d='M24 17v30M40 17v30' stroke='%23fff' stroke-width='7'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css"></head><body>
-<div class="page">
-<header><a href="./" class="wordmark" aria-label="Pause home">pause<span> / </span></a><span class="project-name">Rest without scrolling</span><div class="header-actions"><button id="summary-open" class="text-button">My summary</button><button id="controls-open" class="text-button">Controls</button></div></header>
-<nav aria-label="Your break" class="progress"><ol><li data-step="choose"><span>1</span> Before your break</li><li data-step="rest"><span>2</span> Take your break</li><li data-step="next"><span>3</span> Back &amp; decide</li></ol></nav>
-<main id="main" tabindex="-1"></main>
-<footer><span>No app tracking. No lockouts.</span><button class="text-button" id="stop">Turn support off</button></footer>
-</div>
-<dialog id="controls"><div class="dialog-head"><h2>Your controls</h2><button class="close-button" data-close="controls" aria-label="Close controls">×</button></div><div id="controls-body"></div></dialog>
-<dialog id="summary"><div class="dialog-head"><h2>My private summary</h2><button class="close-button" data-close="summary" aria-label="Close summary">×</button></div><div id="summary-body"></div></dialog>
-<div id="status" class="status" role="status" hidden></div>
-<script src="model.js"></script><script src="storage.js"></script><script src="app.js"></script>
-</body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#F6F4EF">
+  <meta name="description" content="Start a break in one click, choose a boundary if you like, and return when you're ready.">
+  <title>Rest Without Scrolling</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%237FA48F'/%3E%3Cpath d='M24 18v28M40 18v28' stroke='%23fff' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="app-shell"></div>
+  <div id="panel-root"></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="model.js"></script>
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

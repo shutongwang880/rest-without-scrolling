@@ -1,79 +1,782 @@
 'use strict';
-const M=window.PauseModel,S=window.PauseStorage;
-let statusTimeout;
-let storage;try{storage=window.localStorage;}catch{storage=null;}
-const loaded=S.load(storage);let data=loaded.data,storageOK=loaded.available,state=M.create(data.intention);
-const main=document.querySelector('#main');
-const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const id=()=>crypto.randomUUID();
-const feelingLabels={'switch-off':'Tired',interest:'Bored',company:'Want company',distance:'Overwhelmed',unsure:'Not sure'};
-function status(message){const el=document.querySelector('#status');el.textContent=message;el.hidden=false;clearTimeout(statusTimeout);statusTimeout=setTimeout(()=>el.hidden=true,6500);}
-function commit(candidate){if(S.save(storage,candidate)){data=candidate;storageOK=true;return true;}storageOK=false;status('Browser storage is unavailable or full. This change was not saved. Your current break still works.');return false;}
-function rememberIntent(){if(data.prefs.rememberIntent)commit({...data,intention:{...state.intention}});}
-function dispatch(type,value,extra={}){state=M.transition(state,{type,value,...extra});render();}
-function intentionFields(prefix,value){return `<label class="input-label" for="${prefix}-task">I’m working on</label><input class="line-input" id="${prefix}-task" type="text" maxlength="300" value="${esc(value.task)}" placeholder="e.g. Essay introduction"><label class="input-label" for="${prefix}-next">My next small step</label><input class="line-input" id="${prefix}-next" type="text" maxlength="300" value="${esc(value.next)}" placeholder="e.g. Write the first sentence">`;}
-function render(focus=true){
- const opened=!focus?[...main.querySelectorAll('details[open]')].map(x=>x.className).filter(Boolean):[];
- document.querySelector('.progress').hidden=['study','off'].includes(state.view);document.querySelector('#stop').hidden=state.view==='off';
- document.querySelectorAll('[data-step]').forEach(el=>{if(el.dataset.step===state.view)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});
- if(state.view==='study')main.innerHTML=`<h1>Leave yourself a way back.</h1><p class="intro">Set a study intention once. We’ll keep it ready when you take a break.</p><form id="intention-form"><div class="intention-fields">${intentionFields('study',state.intention)}</div><label class="check-row"><input type="checkbox" data-pref="rememberIntent" ${data.prefs.rememberIntent?'checked':''}> Remember this intention on this device</label><p class="field-help">Both fields are optional. Nothing is read from your other apps.</p><div class="actions"><button class="primary" type="submit">I need a break</button></div></form>`;
- if(state.view==='choose')main.innerHTML=`<h1>Before your break.</h1><p class="intro">Choose what you’ll do, and a place to leave it.</p>${data.favorites.length?`<details class="saved-breaks"><summary>My usual breaks <span class="optional">One click to start</span></summary><p class="field-help">Uses the ending shown below. Reminders stay off.</p>${data.favorites.map(f=>`<div class="favorite-row"><div><strong>${esc(f.title)}</strong><small>${esc(f.boundary==='event'?f.event:M.boundaries[f.boundary])}</small></div><button class="secondary" data-action="favorite" data-value="${esc(f.id)}">Start</button></div>`).join('')}</details>`:''}<form id="choose-form"><fieldset class="field"><legend>How are you feeling? <span class="optional">Optional</span></legend><div class="needs">${M.needs.map(n=>`<label class="need"><input type="radio" name="need" value="${n.id}" id="need-${n.id}" ${state.need===n.id?'checked':''}><span>${feelingLabels[n.id]}</span></label>`).join('')}</div></fieldset><fieldset class="field"><legend>What would you like to do?</legend><div class="break-list">${M.getOptions(state).map(o=>`<label class="break-option"><input type="radio" name="activity" value="${o.id}" id="activity-${o.id}" ${state.selected?.id===o.id?'checked':''} required><span><span class="break-title">${esc(o.title)}</span><span class="break-description">${esc(o.description)}</span></span></label>`).join('')}</div>${state.selected?.id==='own'?`<div class="custom-field"><label for="custom">My idea</label><input id="custom" type="text" maxlength="160" placeholder="Call a friend, sit outside…" value="${esc(state.custom)}" required></div>`:''}</fieldset><fieldset class="field boundary-field"><legend>${state.selected?.id==='scroll'?'Want to give this scroll an ending?':'What could the end of this break look like?'}</legend><p class="field-help">You can leave it open. This is your choice, not a deadline.</p><label class="sr-only" for="boundary">End of the break</label><select id="boundary">${Object.entries(M.boundaries).map(([v,t])=>`<option value="${v}" ${state.boundary===v?'selected':''}>${t}</option>`).join('')}</select>${state.boundary==='event'?`<label class="input-label" for="event">My stopping point</label><input class="line-input" id="event" type="text" maxlength="160" value="${esc(state.event)}" placeholder="e.g. When the song ends" required>`:''}<label class="check-row"><input id="remind" type="checkbox" ${state.remind?'checked':''} ${M.isTimed(state.boundary)?'':'disabled'}> Gently remind me then</label><p class="field-help">${M.isTimed(state.boundary)?'Off unless you choose it. One silent message on this page; you can ignore it.':'Time-based reminders are available with 5, 10 or 15 minutes. Activity endings are yours to notice.'}</p></fieldset><details class="intention-preview"><summary>Your return note ${state.intention.task?'is ready':'is empty (optional)'}</summary><p><strong>Working on:</strong> ${esc(state.intention.task)||'Not set'}</p><p><strong>Next step:</strong> ${esc(state.intention.next)||'Not set'}</p><button type="button" class="text-button" data-action="edit-intention">Edit study intention</button></details><label class="check-row"><input id="save-favorite" type="checkbox" ${state.saveFavorite?'checked':''}> Save this combination to my usual breaks</label><div class="start-row"><button class="primary" type="submit" ${state.selected?'':'disabled'}>Start my break</button><p>No countdown, lockout or monitoring.</p></div></form>`;
- if(state.view==='rest')main.innerHTML=`<h1>Take your break.</h1><p class="intro">You can leave this screen now.</p><div id="gentle-notice" class="gentle-notice" role="status" ${state.notice?'':'hidden'}><p>The time you chose has passed. Would you like to check in?</p><div class="actions"><button class="secondary" data-action="return">Check in</button><button class="text-button" data-action="dismiss">Not now</button></div></div><section class="rest-content"><p class="rest-label">YOU CHOSE</p><h2>${esc(state.custom||state.selected.title)}</h2><p class="instruction">${esc(state.selected.instruction)}</p><div class="cue"><span>Your chosen ending</span><p>${esc(M.boundaryLabel(state))}</p></div><p class="note" id="reminder-note">${state.deadline?'One silent check-in is set. It will appear here when this tab is open.':'No reminders are running.'}</p></section><div class="actions"><button class="primary" data-action="return">I’m back</button><button class="text-button" data-action="change">Change this break</button><button class="text-button" data-action="cancel-reminder" id="cancel-inline" ${state.deadline?'':'hidden'}>Cancel reminder</button></div>${state.deadline?'<button class="demo-link" data-action="demo">Prototype: preview the gentle reminder</button>':''}`;
- if(state.view==='next'){
- const c=state.snapshot||{task:'',next:''};const decisions={study:['Back to studying.',c.next?'Your next step: '+c.next:'You can return in your own time.'],finish:['Finished for now.','You can leave it here for today.']};
- let choices=`<div class="next-list">${[['continue','Keep resting'],['change','Try a different break'],['study','Go back to studying'],['plan','Adjust my study plan'],['finish','Finish studying for today']].map(([v,t])=>`<button class="next-choice" data-action="next" data-value="${v}">${t}</button>`).join('')}</div>`;
- if(state.decision==='plan')choices=state.planSaved?`<section class="result" role="status"><h2>Your plan is updated.</h2><p>${esc(state.intention.task)||'No task set'}${state.intention.next?'<br>Next: '+esc(state.intention.next):''}</p></section>`:`<form id="plan-form" class="plan-edit"><h2>What fits now?</h2>${intentionFields('plan',state.planDraft||state.intention)}<button class="secondary" type="submit">Use this plan</button></form>`;
- else if(state.decision){const [title,copy]=decisions[state.decision];choices=`<section class="result" role="status"><h2>${title}</h2><p>${esc(copy)}</p></section>`;}
- main.innerHTML=`<h1>Back. What now?</h1><p class="intro">Returning to study is one option. You choose.</p><section class="return-card"><span class="rest-label">YOUR WAY BACK</span><p class="return-task"><span>You were working on</span><strong>${esc(c.task)||'No study intention was set'}</strong></p><p class="return-step"><span>Your next step</span><strong>${esc(c.next)||'You can choose one when you’re ready'}</strong></p></section>${choices}${state.decision?'<div class="result-actions"><button class="text-button" data-action="reconsider">Choose something else</button><button class="text-button" data-action="new-break">Take another break</button></div>':''}${reflectionHTML()}`;
- }
- if(state.view==='off')main.innerHTML='<h1>Support is off.</h1><p class="intro">No reminders are running. You can close this page.</p><p class="note">Any reflections you previously chose to save remain in My summary. You can delete them there.</p><div class="actions"><button class="secondary" data-action="reset">Use Pause again</button></div>';
- for(const name of opened){const el=main.querySelector('details.'+name.split(' ').join('.'));if(el)el.open=true;}
- if(focus){main.focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
+
+const Model = window.RestModel;
+const Store = window.RestStorage;
+const app = document.querySelector('#app');
+const panelRoot = document.querySelector('#panel-root');
+const toast = document.querySelector('#toast');
+
+let storage;
+try { storage = window.localStorage; } catch { storage = null; }
+const loaded = Store.load(storage);
+let data = loaded.data;
+let storageAvailable = loaded.available;
+data.settings.paused = false;
+let state = Model.initialState(data);
+let supportPaused = false;
+let reminderTimer = null;
+let toastTimer = null;
+let deleteSummaryConfirm = false;
+let deleteControlsConfirm = false;
+let permissionExplain = false;
+let forceKindOpen = false;
+const openSections = { kind: false, ending: false, reminder: false, note: false };
+
+const iconPaths = {
+  shield: '<path d="M12 3 4.5 6v5.4c0 4.8 3.2 8.2 7.5 9.6 4.3-1.4 7.5-4.8 7.5-9.6V6L12 3Z"/><path d="m9 12 2 2 4-5"/>',
+  chart: '<path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/>',
+  x: '<path d="m6 6 12 12M18 6 6 18"/>',
+  arrow: '<path d="m15 18-6-6 6-6"/>',
+  coffee: '<path d="M4 8h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8Zm12 2h2a3 3 0 0 1 0 6h-2"/>',
+  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/>',
+  pause: '<path d="M9 5v14M15 5v14"/>',
+  book: '<path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Zm16 0A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z"/>',
+  download: '<path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/>',
+  trash: '<path d="M4 7h16m-10 4v6m4-6v6M9 7l1-3h4l1 3m3 0-1 14H7L6 7"/>'
+};
+
+function icon(name) {
+  return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]}</svg>`;
 }
-function reflectionHTML(){if(!data.prefs.reflection)return '<p class="note">Reflection is off. You can change this in Controls.</p>';return `<details class="reflection" ${state.feedback?'open':''}><summary>Did this break feel restoring? <span class="optional">Optional · skip freely</span></summary><div class="reflection-options" role="group" aria-label="Restoration">${Object.entries(M.ratings).map(([v,t])=>`<label><input type="radio" name="feedback" value="${v}" ${state.feedback===v?'checked':''}>${t}</label>`).join('')}</div><details class="overrun-question"><summary>Also note whether it ran longer than you wanted <span class="optional">Optional</span></summary><label class="input-label" for="overrun">Did it run longer than you wanted?</label><select id="overrun"><option value="">Prefer not to say</option><option value="no" ${state.overrun==='no'?'selected':''}>No</option><option value="yes" ${state.overrun==='yes'?'selected':''}>Yes</option></select><p class="field-help">Only your answer is used. We don’t measure or infer this.</p></details><label class="check-row"><input type="checkbox" data-pref="history" ${data.prefs.history?'checked':''}> Save reflections on this device</label><p class="field-help">Only saved reflections contribute to your summary. Anyone using this browser profile could read them.</p><button class="secondary" data-action="save-reflection" ${state.feedback&&data.prefs.history&&!state.saved?'':'disabled'}>${state.saved?'Saved to my summary':'Save this reflection'}</button><button class="text-button skip-reflection" data-action="skip-reflection">Skip reflection</button></details>`;}
-function startBreak(){
- const next=M.transition(state,{type:'START',id:id()});
- if(state.saveFavorite){const f={id:id(),activity:state.selected.id,title:state.custom.trim()||state.selected.title,custom:state.custom.trim(),boundary:state.boundary,event:state.event.trim()};const exists=data.favorites.some(x=>x.activity===f.activity&&x.custom===f.custom&&x.boundary===f.boundary&&x.event===f.event);if(!exists)commit({...data,favorites:[...data.favorites,f]});}
- state={...next,saveFavorite:false};render();
+
+const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[char]));
+
+function persist(candidate = data) {
+  if (Store.save(storage, candidate)) {
+    data = candidate;
+    storageAvailable = true;
+    return true;
+  }
+  storageAvailable = false;
+  showToast('Local saving is unavailable. This screen still works, but changes may not be kept.');
+  return false;
 }
-function saveReflection(){if(!data.prefs.history)return;const record=M.record(state);const records=[...data.records];const index=records.findIndex(r=>r.id===record.id);if(index>=0)records[index]=record;else records.push(record);if(commit({...data,records})){state=M.transition(state,{type:'SAVED'});render(false);status('Reflection saved on this device.');}}
-function controlsHTML(){return `<p class="note">Only your intention, chosen break, ending and optional reflection are used. We cannot read apps, browsing, screens, or detect when an activity ends.</p><p class="note">Saved information stays in this browser profile, not on a server. Shared-device users may be able to read it. Reloading clears an unsaved break.</p><label class="check-row"><input type="checkbox" data-pref="reflection" ${data.prefs.reflection?'checked':''}> Offer optional reflection</label><label class="check-row"><input type="checkbox" data-pref="history" ${data.prefs.history?'checked':''}> Allow saving reflections</label><label class="check-row"><input type="checkbox" data-pref="rememberIntent" ${data.prefs.rememberIntent?'checked':''}> Remember my study intention</label><p class="field-help">Turning saving off stops new saves. Existing entries remain until you delete them.</p><button class="secondary" data-action="cancel-reminder" ${state.deadline||state.notice?'':'disabled'}>Cancel this reminder</button><button class="secondary" data-action="off">Turn support off</button>${data.favorites.length?`<details class="saved-breaks"><summary>Manage usual breaks (${data.favorites.length})</summary>${data.favorites.map(f=>`<div class="favorite-row"><span>${esc(f.title)}</span><button class="text-button" data-action="delete-favorite" data-value="${esc(f.id)}">Remove</button></div>`).join('')}</details>`:''}<details class="delete-section"><summary>Delete information</summary><p class="field-help">Delete all saved reflections, usual breaks, remembered intention and preferences from this browser profile.</p><button class="secondary danger" data-action="erase-all">Delete all my local data</button></details>${storageOK?'':'<p class="error-note">Local storage is unavailable. New saves cannot be kept.</p>'}`;}
-function summaryHTML(){
- const stats=M.summary(data.records);let findings='';
- if(stats.activities.length)findings=stats.activities.map(g=>`<p><strong>${esc(g.title)}:</strong> you answered “Yes” to feeling restored in ${g.restored} of ${g.total} saved reflections.</p>`).join('');else findings='<p>Patterns appear after at least three saved reflections for the same activity. There isn’t enough information yet.</p>';
- if(stats.open.length>=3&&stats.bounded.length>=3)findings+=`<p>In the breaks you chose to report, ${stats.open.filter(r=>r.overrun==='yes').length} of ${stats.open.length} open-ended breaks and ${stats.bounded.filter(r=>r.overrun==='yes').length} of ${stats.bounded.length} breaks with a chosen ending ran longer than you wanted.</p><p class="field-help">This describes your answers, not a measured effect of setting an ending.</p>`;
- return `<p class="note">${data.records.length} saved reflection${data.records.length===1?'':'s'}. Only on this browser profile. No scores or streaks.</p><label class="check-row"><input type="checkbox" data-pref="history" ${data.prefs.history?'checked':''}> Allow saving reflections</label><section class="summary-findings"><h3>What you’ve noticed</h3>${findings}</section>${data.records.length?`<details class="history-list"><summary>View saved reflections</summary>${[...data.records].reverse().map(r=>`<article class="history-entry"><h3>${esc(r.title)}</h3><p>Ending: ${esc(r.ending)}</p><p>Restoring: ${M.ratings[r.rating]}${r.overrun?'<br>Longer than wanted: '+(r.overrun==='yes'?'Yes':'No'):''}</p><details><summary>Study intention saved with this break</summary><p>${esc(r.intention.task)||'Not set'}<br>Next: ${esc(r.intention.next)||'Not set'}</p></details><button class="text-button" data-action="delete-record" data-value="${esc(r.id)}">Delete this reflection</button></article>`).join('')}</details><button class="secondary danger" data-action="clear-history">Delete all reflection history</button>`:'<p class="note">Nothing is saved automatically. After a break, you can choose to save a reflection here.</p>'}`;
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 5500);
 }
-function updatePanels(){document.querySelector('#controls-body').innerHTML=controlsHTML();document.querySelector('#summary-body').innerHTML=summaryHTML();}
-function prefsChange(key,value){const prefs={...data.prefs,[key]:value};const candidate={...data,prefs,intention:prefs.rememberIntent?{...state.intention}:{task:'',next:''}};if(commit(candidate)){if(key==='reflection'&&!value)state={...state,feedback:'',overrun:'',saved:false};render(false);}updatePanels();}
-function act(action,value){switch(action){
- case'return':dispatch('RETURN');break;case'dismiss':dispatch('DISMISS');break;case'cancel-reminder':dispatch('CANCEL_REMINDER');updatePanels();status('Reminder cancelled.');break;
- case'change':dispatch('CHANGE');break;case'next':if(value==='continue')dispatch('CONTINUE');else if(value==='change')dispatch('CHANGE');else{state={...M.transition(state,{type:'DECIDE',value}),planSaved:false,planDraft:{...state.intention}};render();}break;
- case'off':document.querySelectorAll('dialog').forEach(x=>x.close());dispatch('OFF');break;
- case'reset':dispatch('RESET');break;case'new-break':dispatch('BEGIN');break;case'edit-intention':state={...state,view:'study'};render();break;
- case'reconsider':state={...state,decision:null};render();break;
- case'favorite':{const f=data.favorites.find(x=>x.id===value);if(!f)return;state={...M.transition(state,{type:'FAVORITE',favorite:f}),saveFavorite:false};startBreak();break;}
- case'save-reflection':saveReflection();break;case'skip-reflection':state={...state,feedback:'',overrun:'',saved:false};render(false);break;
- case'delete-favorite':if(commit({...data,favorites:data.favorites.filter(x=>x.id!==value)})){updatePanels();render(false);}break;
- case'delete-record':if(commit({...data,records:data.records.filter(x=>x.id!==value)})){if(state.breakId===value)state={...state,saved:false};updatePanels();render(false);status('Reflection deleted.');}break;
- case'clear-history':if(commit({...data,records:[]})){state={...state,saved:false};updatePanels();render(false);status('Reflection history deleted.');}break;
- case'erase-all':if(S.clear(storage)){data=S.empty();state=M.create();updatePanels();document.querySelectorAll('dialog').forEach(x=>x.close());render();status('All Pause data in this browser profile has been deleted.');}else status('Could not delete local data. Check your browser storage settings.');break;
- case'demo':state=M.transition(state,{type:'TICK'},state.deadline);render(false);break;
-}}
-main.addEventListener('change',e=>{const el=e.target;if(el.dataset.pref){prefsChange(el.dataset.pref,el.checked);return;}let action;
- if(el.name==='need'||el.name==='activity')action={type:el.name==='need'?'NEED':'SELECT',value:el.value};
- if(el.id==='boundary')action={type:'BOUNDARY',value:el.value};if(el.id==='remind')action={type:'REMIND',value:el.checked};
- if(el.name==='feedback')action={type:'FEEDBACK',value:el.value};if(el.id==='overrun')action={type:'OVERRUN',value:el.value};
- if(el.id==='save-favorite'){state={...state,saveFavorite:el.checked};return;}
- if(action){state=M.transition(state,action);render(false);if(el.id)document.getElementById(el.id)?.focus({preventScroll:true});}
+
+function header() {
+  const subview = ['summary', 'end'].includes(state.view);
+  return `<header class="topbar">
+    <div class="brand"><span class="brand-mark">${icon('pause')}</span><span>Rest Without Scrolling</span></div>
+    <div class="top-actions">
+      ${subview ? `<button class="icon-button with-label" data-action="back-view">${icon('arrow')}<span>Back</span></button>` : ''}
+      <button class="icon-button with-label" data-action="summary" aria-label="My rest patterns">${icon('chart')}<span>My rest patterns</span></button>
+      <button class="icon-button" data-action="controls" aria-label="Controls and privacy">${icon('shield')}</button>
+    </div>
+  </header>`;
+}
+
+function shell(content) {
+  document.documentElement.classList.toggle('library', data.settings.libraryMode);
+  app.innerHTML = header() + content;
+  renderPanels();
+}
+
+function StudyView() {
+  return `<main class="view" data-view="study">
+    <div class="eyebrow"><span class="eyebrow-dot"></span>Studying</div>
+    <h1>Keep your place.<br>Take your break.</h1>
+    <p class="lede">Leave yourself one clear step to return to, if you like.</p>
+    <section class="card session-card" aria-label="Study intention">
+      <div class="field">
+        <label for="study-task">What I’m doing</label>
+        <input class="text-input" id="study-task" maxlength="240" value="${esc(state.session.task)}" placeholder="Essay draft, intro">
+      </div>
+      <div class="field">
+        <label for="study-next">Next step</label>
+        <input class="text-input" id="study-next" maxlength="240" value="${esc(state.session.next)}" placeholder="Write the first sentence of paragraph 2">
+      </div>
+      <p class="help">Saved on this device as you type. Empty works too.</p>
+    </section>
+    <div class="start-row">
+      <button class="primary" data-action="take-break">${icon('coffee')}Take a break</button>
+      <span class="shortcut">or press B</span>
+    </div>
+    <div class="link-row">
+      <button class="link-button" data-action="controls">${icon('shield')}Controls &amp; privacy</button>
+      <button class="link-button" data-action="summary">${icon('chart')}My rest patterns</button>
+    </div>
+  </main>`;
+}
+
+function SetupView() {
+  return `<main class="view" data-view="setup">
+    <div class="eyebrow"><span class="eyebrow-dot"></span>Research version B</div>
+    <h1>What would suit this break?</h1>
+    <p class="lede">Choose as much or as little as you like, then start.</p>
+    <section class="card session-card">
+      ${restKindBody(true)}
+      <div class="spacer-24"></div>
+      ${endingBody(true)}
+      <div class="spacer-24"></div>
+      ${reminderBody(true)}
+      <div class="button-row">
+        <button class="primary" data-action="start-setup">Start break</button>
+        <button class="text-button" data-action="cancel-setup">Cancel</button>
+      </div>
+    </section>
+  </main>`;
+}
+
+function BreakView() {
+  const active = state.activeBreak;
+  const reminderText = active && Model.isTimed(active.ending)
+    ? `Your break was set for about ${active.ending} minutes. Whenever you’re ready.`
+    : 'Whenever you’re ready.';
+  return `<main class="view" data-view="break">
+    <section class="break-message">
+      <div class="eyebrow"><span class="eyebrow-dot"></span>On a break</div>
+      <h1>You’re on a break.</h1>
+      <p class="lede">Nothing is blocked. Your device is yours.</p>
+      <div class="soft-bar" id="reminder-bar" ${active?.reminded ? '' : 'hidden'}>
+        <span>${esc(reminderText)}</span>
+        <span class="soft-bar-actions">
+          <button class="secondary-button" data-action="return">I’m ready</button>
+          <button class="icon-button" data-action="dismiss-reminder" aria-label="Dismiss reminder">${icon('x')}</button>
+        </span>
+      </div>
+      <div class="back-action"><button class="primary sky" data-action="return">I’m back</button></div>
+    </section>
+    ${supportPaused ? '<p class="paused-note">Break support is paused. “I’m back” still works whenever you’re ready.</p>' : `
+      <section class="optional-zone" aria-label="Optional break choices">
+        <p class="optional-heading">Make this break your own <span class="muted">(optional, skip entirely)</span></p>
+        ${accordion('kind', 'What kind of rest?', restKindBody(false))}
+        ${accordion('ending', 'How will this end?', endingBody(false))}
+        ${accordion('reminder', 'Quiet reminder', reminderBody(false))}
+      </section>
+    `}
+  </main>`;
+}
+
+function accordion(name, title, body) {
+  const open = openSections[name] || (name === 'kind' && forceKindOpen);
+  return `<details class="accordion" data-section="${name}" ${open ? 'open' : ''}>
+    <summary>${title}</summary>
+    <div class="accordion-body">${body}</div>
+  </details>`;
+}
+
+function feelingChips() {
+  return `<div class="chips" aria-label="How you feel">${Model.FEELINGS.map(item =>
+    `<button class="pill" data-action="feeling" data-value="${item.id}" aria-pressed="${state.setup.feeling === item.id}">${item.label}</button>`
+  ).join('')}</div>`;
+}
+
+function restCards() {
+  const suggestions = Model.suggestions(state.setup.feeling);
+  const extras = ['nothing', 'own', 'phone'].map(id => ({ id, ...Model.RESTS[id] }));
+  return `<div class="rest-grid">${[...suggestions, ...extras].map(item =>
+    `<button class="rest-card" data-action="rest-type" data-value="${item.id}" aria-pressed="${state.setup.type === item.id}">
+      <strong>${item.label}</strong><span>${item.detail}</span>
+    </button>`
+  ).join('')}</div>`;
+}
+
+function restKindBody(setupMode) {
+  const usual = data.lastRest;
+  return `
+    <p class="section-label">How are you feeling? <span class="muted">(optional)</span></p>
+    ${feelingChips()}
+    <p class="section-label">A few possibilities</p>
+    ${usual ? `<button class="pill usual" data-action="use-usual">Use my usual: ${esc(usual.label || Model.RESTS[usual.type]?.label)}</button><div class="spacer-24"></div>` : ''}
+    ${restCards()}
+    ${state.setup.type === 'own' ? `<div class="own-field"><label class="section-label" for="${setupMode ? 'setup-own' : 'break-own'}">My idea</label><input class="text-input" id="${setupMode ? 'setup-own' : 'break-own'}" maxlength="160" value="${esc(state.setup.ownIdea)}" placeholder="Sit outside, call a friend…"></div>` : ''}
+    ${state.setup.type === 'phone' ? '<p class="phone-copy">Want to set where this ends? You can skip.</p>' : ''}
+  `;
+}
+
+function endingBody() {
+  return `<div class="chips" aria-label="How the break will end">${Model.ENDINGS.map(item =>
+    `<button class="pill" data-action="ending" data-value="${item.id}" aria-pressed="${state.setup.ending === item.id}">${item.label}</button>`
+  ).join('')}</div>`;
+}
+
+function reminderBody() {
+  const timed = Model.isTimed(state.setup.ending);
+  return `
+    <label class="toggle-row">
+      <span class="toggle-copy"><strong>Remind me once, quietly</strong><span>Silent. You can ignore it.</span></span>
+      <input class="switch" id="break-reminder" type="checkbox" ${timed && state.setup.remind ? 'checked' : ''} ${timed ? '' : 'disabled'} aria-label="Remind me once, quietly">
+    </label>
+    ${!timed ? '<p class="help">Choose 5, 10 or 15 minutes if you want a reminder.</p>' : ''}
+    ${permissionExplain && timed && state.setup.remind && !data.settings.libraryMode ? `<div class="permission-card">
+      To show one reminder after you leave this tab, Pause needs notification permission.
+      <div class="permission-actions">
+        <button class="secondary-button" data-action="allow-notification">Allow notification</button>
+        <button class="text-button" data-action="page-only">Use page only</button>
+      </div>
+    </div>` : ''}
+    ${data.settings.libraryMode ? '<p class="help">Library mode keeps reminders inside this page.</p>' : ''}
+  `;
+}
+
+function BackView() {
+  const active = state.activeBreak;
+  const task = active?.intention?.task || '';
+  const next = active?.intention?.next || '';
+  const planned = active && Model.isTimed(active.ending)
+    ? `<p class="return-plan">You planned about ${active.ending} minutes.</p>` : '';
+  return `<main class="view" data-view="back">
+    <section class="card return-card">
+      <div class="label">Your way back <button class="edit-link" data-action="edit-return">Edit</button></div>
+      <div class="return-row"><span>You were doing</span><strong>${esc(task) || 'No task note was set'}</strong></div>
+      <div class="return-row"><span>Next step</span><strong>${esc(next) || 'Choose one when you’re ready'}</strong></div>
+      ${planned}
+    </section>
+    <div class="spacer-24"></div>
+    <h1>How would you like to continue?</h1>
+    <div class="outcome-grid" aria-label="What to do next">
+      ${Model.OUTCOMES.map(item => `<button class="equal-option" data-action="outcome" data-value="${item.id}">${item.label}</button>`).join('')}
+    </div>
+    ${state.backChoice === 'plan' ? planPanel() : ''}
+    ${data.settings.optionalNotes ? QuickNote() : ''}
+  </main>`;
+}
+
+function planPanel() {
+  return `<section class="card plan-panel">
+    <h2>Change my plan</h2>
+    <p class="help">No explanation needed.</p>
+    <div class="field"><label for="plan-task">What I’m doing</label><input class="text-input" id="plan-task" maxlength="240" value="${esc(state.planDraft.task)}"></div>
+    <div class="field"><label for="plan-next">Next step</label><input class="text-input" id="plan-next" maxlength="240" value="${esc(state.planDraft.next)}"></div>
+    <div class="button-row"><button class="secondary-button" data-action="save-plan">Save</button><button class="text-button" data-action="cancel-plan">Cancel</button></div>
+  </section>`;
+}
+
+function QuickNote() {
+  return `<details class="accordion note-card" data-section="note" ${openSections.note ? 'open' : ''}>
+    <summary>Quick note <span class="muted">(optional)</span></summary>
+    <div class="accordion-body">
+      <p class="section-label">How restoring did it feel?</p>
+      <div class="radio-group">
+        ${[['not','Not really'],['bit','A bit'],['yes','Yes']].map(([value,label]) => radio('restoring', value, label, state.note.restoring)).join('')}
+      </div>
+      <p class="section-label">Did it run longer than you expected?</p>
+      <div class="radio-group">
+        ${[['shorter','Shorter'],['right','About right'],['longer','Longer'],['unsure','Not sure']].map(([value,label]) => radio('durationReport', value, label, state.note.durationReport)).join('')}
+      </div>
+      <div class="note-actions">
+        <button class="secondary-button" data-action="save-note" ${state.note.restoring && state.note.durationReport && !state.note.saved ? '' : 'disabled'}>${state.note.saved ? 'Saved' : 'Save to my private summary'}</button>
+        <button class="text-button" data-action="skip-note">Skip</button>
+      </div>
+      <p class="help">Only notes you save are kept. Delete anytime.</p>
+    </div>
+  </details>`;
+}
+
+function radio(name, value, label, current) {
+  return `<label class="radio-chip"><input type="radio" name="${name}" value="${value}" ${current === value ? 'checked' : ''}><span>${label}</span></label>`;
+}
+
+function SummaryView() {
+  const cards = Model.insights(data.history);
+  return `<main class="view" data-view="summary">
+    <div class="subview-head"><div><div class="eyebrow"><span class="eyebrow-dot"></span>Private summary</div><h1>My rest patterns</h1><p class="lede">Only you can see this. Built only from notes you chose to save.</p></div></div>
+    ${cards.length ? `<div class="insight-grid">${cards.map(card => `<article class="insight-card"><h3>${esc(card.title)}</h3><p>${esc(card.text)}</p></article>`).join('')}</div>` : '<section class="card empty-state"><h2>Nothing yet.</h2><p class="lede">Notes you save will appear here.</p></section>'}
+    <div class="button-row"><button class="secondary-button danger" data-action="ask-delete-history">${icon('trash')}Delete my history</button></div>
+    ${deleteSummaryConfirm ? `<div class="confirm-box"><p>Delete all saved break notes from this device?</p><div class="button-row"><button class="secondary-button" data-action="confirm-delete-history">Delete history</button><button class="text-button" data-action="cancel-delete-history">Cancel</button></div></div>` : ''}
+  </main>`;
+}
+
+function EndView() {
+  return `<main class="view closed-message" data-view="end">
+    <div class="eyebrow"><span class="eyebrow-dot"></span>Study closed</div>
+    <h1>Study closed.</h1>
+    <p class="lede">Pick it up whenever you like.</p>
+    <div class="start-row" style="justify-content:center"><button class="primary" data-action="done">Done</button></div>
+  </main>`;
+}
+
+function render(preserveFocus = false) {
+  const focused = preserveFocus ? document.activeElement?.id : null;
+  let content;
+  if (state.view === 'study') content = StudyView();
+  if (state.view === 'setup') content = SetupView();
+  if (state.view === 'break') content = BreakView();
+  if (state.view === 'back') content = BackView();
+  if (state.view === 'summary') content = SummaryView();
+  if (state.view === 'end') content = EndView();
+  shell(content);
+  document.querySelector('main')?.setAttribute('tabindex', '-1');
+  if (focused) document.getElementById(focused)?.focus({ preventScroll: true });
+  if (!preserveFocus) document.querySelector('main')?.focus?.({ preventScroll: true });
+}
+
+function ControlsPanel() {
+  return `<div class="panel-backdrop" data-action="close-controls">
+    <aside class="side-panel" aria-label="Controls and privacy" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+      <div class="panel-head"><h2>Controls &amp; privacy</h2><button class="icon-button" data-action="close-controls" aria-label="Close controls">${icon('x')}</button></div>
+      <section class="panel-section"><h3>What this uses</h3><p>Your task note, rest type, how you chose to end, and notes you save. Nothing else.</p></section>
+      <section class="panel-section"><h3>What’s shared</h3><p>Nothing. Private to you on this browser profile.</p></section>
+      <section class="panel-section">
+        ${settingToggle('pause-support', 'Pause support this session', 'Break buttons keep working.', supportPaused)}
+        ${settingToggle('quiet-reminders', 'Quiet reminders', 'Off by default. One silent reminder at most.', data.settings.quietReminders)}
+        ${settingToggle('optional-notes', 'Optional notes', 'Show the private note card after a break.', data.settings.optionalNotes)}
+        ${settingToggle('library-mode', 'Library mode', 'Dimmer colours. Page-only reminders. No animation.', data.settings.libraryMode)}
+        ${permissionExplain && !data.settings.libraryMode ? `<div class="permission-card">To show one reminder after you leave this tab, Pause needs notification permission.<div class="permission-actions"><button class="secondary-button" data-action="allow-notification">Allow notification</button><button class="text-button" data-action="page-only">Use page only</button></div></div>` : ''}
+      </section>
+      <section class="panel-section">
+        <button class="secondary-button danger" data-action="ask-controls-delete">Delete my break history</button>
+        ${deleteControlsConfirm ? `<div class="confirm-box"><p>Delete every saved break note from this device?</p><div class="button-row"><button class="secondary-button" data-action="confirm-delete-history">Delete history</button><button class="text-button" data-action="cancel-controls-delete">Cancel</button></div></div>` : ''}
+      </section>
+      <p class="panel-footer">Pause or turn this off anytime, no penalty.${storageAvailable ? '' : ' Local saving is unavailable in this browser.'}</p>
+    </aside>
+  </div>`;
+}
+
+function settingToggle(id, title, help, checked) {
+  return `<label class="toggle-row"><span class="toggle-copy"><strong>${title}</strong><span>${help}</span></span><input class="switch" id="${id}" type="checkbox" ${checked ? 'checked' : ''}></label>`;
+}
+
+function ResearcherPanel() {
+  return `<section class="researcher-panel" aria-label="Researcher mode">
+    <div class="panel-head"><div><h2>Researcher mode</h2><p>Usability-testing controls. Stored locally and clearly separated from student notes.</p></div><button class="icon-button" data-action="close-researcher" aria-label="Close researcher mode">${icon('x')}</button></div>
+    <div class="research-options">
+      <button class="research-choice" data-action="research-version" data-value="A" aria-pressed="${data.researcher.version === 'A'}"><strong>Version A: One-click</strong><br><span class="small">Break starts immediately.</span></button>
+      <button class="research-choice" data-action="research-version" data-value="B" aria-pressed="${data.researcher.version === 'B'}"><strong>Version B: Set up first</strong><br><span class="small">Choose rest and ending before starting.</span></button>
+    </div>
+    ${settingToggle('research-log', 'Record research log', 'Version, optional opening, return time and selected outcome.', data.researcher.logEnabled)}
+    <p>${data.researcher.logs.length} local research log${data.researcher.logs.length === 1 ? '' : 's'}.</p>
+    <div class="research-actions">
+      <button data-action="export-logs">${icon('download')}Export JSON</button>
+      <button data-action="delete-logs">${icon('trash')}Delete logs</button>
+    </div>
+  </section>`;
+}
+
+function renderPanels() {
+  let html = '';
+  if (state.controlsOpen) html += ControlsPanel();
+  if (state.researcherOpen) html += ResearcherPanel();
+  panelRoot.innerHTML = html;
+}
+
+function beginBreak() {
+  const clickedAt = Date.now();
+  state.setup = Model.restDraft(data);
+  openSections.kind = openSections.ending = openSections.reminder = false;
+  forceKindOpen = false;
+  if (data.researcher.version === 'B') {
+    state.researchStartAt = clickedAt;
+    state.view = 'setup';
+    render();
+    return;
+  }
+  state = Model.startBreak(state, data);
+  state.activeBreak.startedAt = clickedAt;
+  scheduleReminder(true);
+  render();
+}
+
+function startSetupBreak() {
+  state = Model.startBreak(state, data);
+  state.activeBreak.startedAt = state.researchStartAt || state.activeBreak.startedAt;
+  state.researchStartAt = null;
+  saveLastRest();
+  scheduleReminder(true);
+  render();
+}
+
+function saveLastRest() {
+  if (!state.setup.type) return;
+  const lastRest = {
+    type: state.setup.type,
+    label: Model.restLabel(state.setup),
+    ownIdea: state.setup.type === 'own' ? state.setup.ownIdea.trim() : '',
+    feeling: state.setup.feeling,
+    ending: state.setup.ending,
+    remind: state.setup.remind
+  };
+  persist({ ...data, lastRest });
+}
+
+function syncActiveBreak(resetReminder = false) {
+  if (!state.activeBreak) return;
+  const draft = state.setup;
+  state.activeBreak = {
+    ...state.activeBreak,
+    type: draft.type,
+    label: Model.restLabel(draft),
+    ownIdea: draft.type === 'own' ? draft.ownIdea.trim() : '',
+    feeling: draft.feeling,
+    ending: draft.ending,
+    remind: draft.remind && Model.isTimed(draft.ending),
+    optionalOpened: state.activeBreak.optionalOpened || state.optionalOpen
+  };
+  if (resetReminder) {
+    state.activeBreak.reminded = false;
+    state.activeBreak.reminderAt = state.activeBreak.remind
+      ? Date.now() + Number(draft.ending) * 60000
+      : null;
+  }
+  if (draft.type) {
+    saveLastRest();
+  }
+  scheduleReminder(false);
+}
+
+function scheduleReminder(reset) {
+  clearTimeout(reminderTimer);
+  reminderTimer = null;
+  const active = state.activeBreak;
+  if (!active || state.view !== 'break' || supportPaused || !active.remind || active.reminded) return;
+  if (reset || !active.reminderAt) active.reminderAt = Date.now() + Number(active.ending) * 60000;
+  const delay = active.reminderAt - Date.now();
+  if (delay <= 0) return fireReminder();
+  reminderTimer = setTimeout(fireReminder, delay);
+}
+
+function fireReminder() {
+  clearTimeout(reminderTimer);
+  reminderTimer = null;
+  const active = state.activeBreak;
+  if (!active || active.reminded || supportPaused || state.view !== 'break') return;
+  active.reminded = true;
+  active.reminderAt = null;
+  active.remind = false;
+  state.setup.remind = false;
+  document.title = 'Whenever you’re ready';
+  const message = `Your break was set for about ${active.ending} minutes. Whenever you’re ready.`;
+  if (!data.settings.libraryMode && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      const notification = new Notification('Whenever you’re ready', { body: message, silent: true, tag: 'rest-without-scrolling' });
+      notification.onclick = () => { window.focus(); returnFromBreak(); notification.close(); };
+    } catch {}
+  }
+  render(true);
+}
+
+async function allowNotification() {
+  permissionExplain = false;
+  if (!('Notification' in window)) {
+    showToast('Browser notifications are unavailable. The reminder will stay inside this page.');
+    render(true);
+    return;
+  }
+  try {
+    const result = await Notification.requestPermission();
+    showToast(result === 'granted' ? 'One silent browser reminder is allowed.' : 'The reminder will stay inside this page.');
+  } catch {
+    showToast('The reminder will stay inside this page.');
+  }
+  render(true);
+}
+
+function returnFromBreak() {
+  clearTimeout(reminderTimer);
+  reminderTimer = null;
+  document.title = 'Rest Without Scrolling';
+  if (state.activeBreak && !state.activeBreak.returnedAt) state.activeBreak.returnedAt = Date.now();
+  state.view = 'back';
+  state.planDraft = { ...state.session };
+  state.backChoice = null;
+  forceKindOpen = false;
+  render();
+}
+
+function chooseOutcome(outcome) {
+  recordResearch(outcome);
+  if (outcome === 'keep') {
+    state.view = 'break';
+    state.activeBreak.remind = false;
+    state.activeBreak.reminderAt = null;
+    state.activeBreak.reminded = false;
+    render();
+    return;
+  }
+  if (outcome === 'different') {
+    state.view = 'break';
+    state.setup.type = '';
+    state.setup.ownIdea = '';
+    forceKindOpen = true;
+    openSections.kind = true;
+    render();
+    return;
+  }
+  if (outcome === 'plan') {
+    state.backChoice = 'plan';
+    state.planDraft = { ...state.session };
+    render();
+    return;
+  }
+  if (outcome === 'study') {
+    state.view = 'study';
+    state.activeBreak = null;
+    render();
+    return;
+  }
+  if (outcome === 'end') {
+    state.view = 'end';
+    render();
+  }
+}
+
+function recordResearch(outcome) {
+  const active = state.activeBreak;
+  if (!active || active.researchLogged || !data.researcher.logEnabled) return;
+  const log = {
+    id: Model.cryptoId(),
+    version: active.version,
+    optionalOpened: active.optionalOpened === true,
+    timeToBackMs: Math.max(0, (active.returnedAt || Date.now()) - active.startedAt),
+    outcome,
+    recordedAt: Date.now()
+  };
+  active.researchLogged = true;
+  persist({ ...data, researcher: { ...data.researcher, logs: [...data.researcher.logs, log] } });
+}
+
+function saveNote() {
+  try {
+    const record = Model.makeHistoryRecord(state);
+    if (persist({ ...data, history: [...data.history, record] })) {
+      state.note.saved = true;
+      render(true);
+      showToast('Saved to your private summary.');
+    }
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+function updateSession(task, next) {
+  state.session = {
+    task: task.slice(0, 240),
+    next: next.slice(0, 240)
+  };
+  persist({ ...data, session: { ...state.session } });
+}
+
+function settingChange(id, checked) {
+  if (id === 'pause-support') {
+    supportPaused = checked;
+    if (checked) {
+      clearTimeout(reminderTimer);
+      reminderTimer = null;
+      if (state.activeBreak) {
+        state.activeBreak.remind = false;
+        state.activeBreak.reminderAt = null;
+      }
+      state.setup.remind = false;
+      document.title = 'Rest Without Scrolling';
+    }
+  } else if (id === 'research-log') {
+    persist({ ...data, researcher: { ...data.researcher, logEnabled: checked } });
+  } else {
+    const map = {
+      'quiet-reminders': 'quietReminders',
+      'optional-notes': 'optionalNotes',
+      'library-mode': 'libraryMode'
+    };
+    const key = map[id];
+    if (key) persist({ ...data, settings: { ...data.settings, [key]: checked } });
+    if (id === 'quiet-reminders') {
+      state.setup.remind = checked && Model.isTimed(state.setup.ending);
+      permissionExplain = checked && !data.settings.libraryMode &&
+        (!('Notification' in window) || Notification.permission === 'default');
+      if (state.activeBreak) syncActiveBreak(true);
+    }
+    if (id === 'library-mode' && checked) permissionExplain = false;
+  }
+  render(true);
+}
+
+function openSummary() {
+  state.returnView = ['summary', 'end'].includes(state.view) ? 'study' : state.view;
+  state.view = 'summary';
+  deleteSummaryConfirm = false;
+  render();
+}
+
+function backView() {
+  state.view = state.returnView || 'study';
+  render();
+}
+
+function deleteHistory() {
+  if (persist({ ...data, history: [] })) {
+    deleteSummaryConfirm = deleteControlsConfirm = false;
+    render(true);
+    showToast('Your saved break history was deleted.');
+  }
+}
+
+function exportLogs() {
+  const body = JSON.stringify({
+    label: 'Rest Without Scrolling researcher log',
+    exportedAt: new Date().toISOString(),
+    logs: data.researcher.logs
+  }, null, 2);
+  const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'rest-without-scrolling-research-log.json';
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleAction(action, value) {
+  if (action === 'take-break') beginBreak();
+  if (action === 'start-setup') startSetupBreak();
+  if (action === 'cancel-setup') { state.view = 'study'; render(); }
+  if (action === 'return') returnFromBreak();
+  if (action === 'dismiss-reminder') {
+    state.activeBreak.reminded = false;
+    document.title = 'Rest Without Scrolling';
+    render(true);
+  }
+  if (action === 'feeling') {
+    state.setup.feeling = value;
+    render(true);
+  }
+  if (action === 'rest-type') {
+    state.setup.type = value;
+    if (value !== 'own') state.setup.ownIdea = '';
+    syncActiveBreak(false);
+    render(true);
+  }
+  if (action === 'ending') {
+    state.setup.ending = value;
+    state.setup.remind = Model.isTimed(value) && data.settings.quietReminders;
+    syncActiveBreak(true);
+    render(true);
+  }
+  if (action === 'use-usual' && data.lastRest) {
+    state.setup = { ...data.lastRest, remind: false };
+    syncActiveBreak(true);
+    render(true);
+  }
+  if (action === 'allow-notification') allowNotification();
+  if (action === 'page-only') { permissionExplain = false; render(true); }
+  if (action === 'outcome') chooseOutcome(value);
+  if (action === 'save-plan') {
+    updateSession(state.planDraft.task, state.planDraft.next);
+    state.backChoice = null;
+    state.view = 'study';
+    state.activeBreak = null;
+    render();
+  }
+  if (action === 'cancel-plan') { state.backChoice = null; render(); }
+  if (action === 'edit-return') {
+    state.backChoice = 'plan';
+    state.planDraft = { ...state.session };
+    render();
+  }
+  if (action === 'save-note') saveNote();
+  if (action === 'skip-note') { openSections.note = false; state.note = { restoring: '', durationReport: '', saved: false }; render(true); }
+  if (action === 'summary') openSummary();
+  if (action === 'back-view') backView();
+  if (action === 'controls') { state.controlsOpen = true; renderPanels(); }
+  if (action === 'close-controls') { state.controlsOpen = false; renderPanels(); }
+  if (action === 'ask-delete-history') { deleteSummaryConfirm = true; render(true); }
+  if (action === 'cancel-delete-history') { deleteSummaryConfirm = false; render(true); }
+  if (action === 'ask-controls-delete') { deleteControlsConfirm = true; renderPanels(); }
+  if (action === 'cancel-controls-delete') { deleteControlsConfirm = false; renderPanels(); }
+  if (action === 'confirm-delete-history') deleteHistory();
+  if (action === 'done') { state.view = 'study'; state.activeBreak = null; render(); }
+  if (action === 'close-researcher') { state.researcherOpen = false; renderPanels(); }
+  if (action === 'research-version') {
+    persist({ ...data, researcher: { ...data.researcher, version: value } });
+    renderPanels();
+  }
+  if (action === 'export-logs') exportLogs();
+  if (action === 'delete-logs') {
+    persist({ ...data, researcher: { ...data.researcher, logs: [] } });
+    renderPanels();
+    showToast('Research logs deleted.');
+  }
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const action = button.dataset.action;
+  if (button.classList.contains('panel-backdrop') && event.target !== button) return;
+  handleAction(action, button.dataset.value);
 });
-main.addEventListener('input',e=>{const el=e.target;if(el.id==='plan-task'||el.id==='plan-next')state={...state,planDraft:{...(state.planDraft||state.intention),[el.id==='plan-task'?'task':'next']:el.value}};if(['custom','event'].includes(el.id))state={...state,[el.id]:el.value};if(el.id==='study-task'||el.id==='study-next')state={...state,intention:{...state.intention,[el.id==='study-task'?'task':'next']:el.value}};});
-main.addEventListener('submit',e=>{e.preventDefault();if(e.target.id==='intention-form'){rememberIntent();dispatch('BEGIN');}if(e.target.id==='choose-form')startBreak();if(e.target.id==='plan-form'){state=M.transition(state,{type:'INTENTION',task:document.querySelector('#plan-task').value,next:document.querySelector('#plan-next').value});state={...state,planSaved:true};rememberIntent();render();}});
-document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.close)document.getElementById(b.dataset.close).close();if(b.dataset.action)act(b.dataset.action,b.dataset.value);});
-document.querySelectorAll('dialog').forEach(d=>d.addEventListener('change',e=>{if(e.target.dataset.pref)prefsChange(e.target.dataset.pref,e.target.checked);}));
-document.querySelector('#stop').addEventListener('click',()=>act('off'));
-document.querySelector('#controls-open').addEventListener('click',()=>{updatePanels();document.querySelector('#controls').showModal();});document.querySelector('#summary-open').addEventListener('click',()=>{updatePanels();document.querySelector('#summary').showModal();});
-function tick(){const next=M.transition(state,{type:'TICK'});if(!state.notice&&next.notice){state=next;const notice=document.querySelector('#gentle-notice');if(notice)notice.hidden=false;const cancel=document.querySelector('#cancel-inline');if(cancel)cancel.hidden=true;const demo=main.querySelector('.demo-link');if(demo)demo.hidden=true;const note=document.querySelector('#reminder-note');if(note)note.textContent='Your check-in is above. There will be no further reminders.';}}
-window.addEventListener('storage',event=>{if(event.key!==S.KEY&&event.key!==null)return;const fresh=S.load(storage);data=fresh.data;storageOK=fresh.available;if(state.saved&&!data.records.some(r=>r.id===state.breakId))state={...state,saved:false};updatePanels();render(false);});
-setInterval(tick,1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});render(false);
-if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'get_break_state',description:'Read the visible break stage, activity and whether a reminder is armed. Does not expose personal intention or saved reflections, and does not change anything.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>({step:state.view,activity:state.selected?.id||null,reminderArmed:state.deadline!==null,supportEnabled:state.enabled})})).catch(()=>{});}catch{}}
+
+document.addEventListener('input', event => {
+  const element = event.target;
+  if (element.id === 'study-task' || element.id === 'study-next') {
+    const task = document.querySelector('#study-task')?.value || '';
+    const next = document.querySelector('#study-next')?.value || '';
+    updateSession(task, next);
+  }
+  if (element.id === 'setup-own' || element.id === 'break-own') {
+    state.setup.ownIdea = element.value;
+    syncActiveBreak(false);
+  }
+  if (element.id === 'plan-task') state.planDraft.task = element.value;
+  if (element.id === 'plan-next') state.planDraft.next = element.value;
+});
+
+document.addEventListener('change', event => {
+  const element = event.target;
+  if (element.id === 'break-reminder') {
+    state.setup.remind = element.checked;
+    const settings = { ...data.settings, quietReminders: element.checked };
+    persist({ ...data, settings });
+    permissionExplain = element.checked && !data.settings.libraryMode &&
+      (!('Notification' in window) || Notification.permission === 'default');
+    syncActiveBreak(true);
+    render(true);
+  }
+  if (element.name === 'restoring' || element.name === 'durationReport') {
+    state.note[element.name] = element.value;
+    state.note.saved = false;
+    render(true);
+  }
+  if (['pause-support', 'quiet-reminders', 'optional-notes', 'library-mode', 'research-log'].includes(element.id)) {
+    settingChange(element.id, element.checked);
+  }
+});
+
+document.addEventListener('toggle', event => {
+  const details = event.target;
+  if (!details.matches?.('details[data-section]')) return;
+  const name = details.dataset.section;
+  openSections[name] = details.open;
+  if (details.open && ['kind', 'ending', 'reminder'].includes(name)) {
+    state.optionalOpen = true;
+    if (state.activeBreak) state.activeBreak.optionalOpened = true;
+  }
+}, true);
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    if (state.controlsOpen) { state.controlsOpen = false; renderPanels(); return; }
+    if (state.researcherOpen) { state.researcherOpen = false; renderPanels(); }
+  }
+  if (event.shiftKey && event.key.toLowerCase() === 'r') {
+    event.preventDefault();
+    state.researcherOpen = !state.researcherOpen;
+    renderPanels();
+    return;
+  }
+  const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+  if (!typing && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === 'b' && state.view === 'study') {
+    event.preventDefault();
+    beginBreak();
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && state.activeBreak?.reminderAt && Date.now() >= state.activeBreak.reminderAt) fireReminder();
+});
+
+window.addEventListener('storage', event => {
+  if (event.key !== Store.KEY && event.key !== null) return;
+  const fresh = Store.load(storage);
+  data = fresh.data;
+  storageAvailable = fresh.available;
+  render(true);
+});
+
+render();
