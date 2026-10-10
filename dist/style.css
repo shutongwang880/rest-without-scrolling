@@ -165,6 +165,22 @@ h3 { font-size: 16px; line-height: 1.4; }
 .rest-card:hover, .rest-card[aria-pressed="true"] { border-color: var(--sage); background: var(--sage-soft); }
 .rest-card strong { display: block; font-size: 15px; }
 .rest-card span { display: block; color: var(--secondary); font-size: 12px; line-height: 1.45; margin-top: 5px; }
+.rest-card em { display: block; color: var(--sage-dark); font-size: 12px; line-height: 1.4; margin-top: 9px; font-style: normal; font-weight: 700; }
+.other-rests { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+.other-rests > span { color: var(--secondary); font-size: 12px; margin-right: 2px; }
+.selected-rest {
+  width: min(430px, 100%); margin: 24px auto 0; padding: 15px 18px;
+  display: grid; grid-template-columns: auto 1fr; gap: 3px 15px; text-align: left;
+  border: 1px solid var(--line); border-radius: 15px; background: var(--card);
+}
+.selected-rest > span { grid-row: 1 / 3; align-self: center; color: var(--secondary); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.selected-rest strong { font-size: 15px; }
+.selected-rest small { color: var(--sage-dark); font-size: 12px; font-weight: 700; }
+.session-card > .selected-rest { margin-left: 0; }
+.inline-options { border-top: 1px solid var(--line); padding-top: 18px; }
+.inline-options summary { cursor: pointer; color: var(--sage-dark); font-size: 14px; font-weight: 700; }
+.inline-options-body { padding-top: 13px; }
+.ending-help { margin: 0 0 12px; }
 .phone-copy {
   margin: 14px 0 0; padding: 12px 14px; border-radius: 13px;
   background: var(--sky-soft); color: #3D5969; font-size: 14px;

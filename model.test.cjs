@@ -55,6 +55,19 @@ test('feeling-based suggestions change without ranking one correct rest', () => 
   assert.ok(Model.RESTS.nothing);
   assert.ok(Model.RESTS.own);
   assert.ok(Model.RESTS.phone);
+  assert.ok(Model.RESTS.song);
+  groups.flat().forEach(type => assert.ok(Model.RESTS[type].ending));
+});
+
+test('every suggested rest includes a concrete stopping point', () => {
+  for (const feeling of Model.FEELINGS) {
+    for (const rest of Model.suggestions(feeling.id)) {
+      assert.equal(Model.recommendedEnding(rest.id), rest.ending);
+      assert.ok(Model.endingLabel(rest.ending));
+    }
+  }
+  assert.equal(Model.recommendedEnding('song'), 'song');
+  assert.equal(Model.endingLabel('song'), 'After one song');
 });
 
 test('one-click break snapshots the student intention and starts without a timer', () => {
@@ -70,7 +83,7 @@ test('one-click break snapshots the student intention and starts without a timer
 
 test('only explicitly enabled minute endings create a reminder time', () => {
   const data = Store.defaults();
-  for (const ending of ['walk', 'drink', 'self']) {
+  for (const ending of ['walk', 'drink', 'song', 'chat', 'self']) {
     const state = Model.initialState(data);
     state.setup = { ...state.setup, ending, remind: true };
     const next = Model.startBreak(state, data, 1000);
@@ -119,6 +132,11 @@ test('the implementation exposes the requested component structure and five equa
   }
   Model.OUTCOMES.forEach(item => assert.match(source, new RegExp(item.id)));
   assert.equal(Model.OUTCOMES.length, 5);
+});
+
+test('choosing a suggestion sets its ending in the same interaction', () => {
+  assert.match(source, /state\.setup\.ending = Model\.recommendedEnding\(value\)/);
+  assert.match(source, /Stops: \$\{Model\.endingLabel\(item\.ending\)\}/);
 });
 
 test('reminder implementation is silent, one-time, dismissible and library-aware', () => {

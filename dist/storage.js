@@ -25,10 +25,10 @@
     typeof value === 'string' ? value.slice(0, max) : '';
 
   const REST_TYPES = [
-    'walk', 'water', 'stretch', 'eyes', 'chat', 'breathe',
+    'walk', 'water', 'stretch', 'eyes', 'song', 'chat', 'breathe',
     'nothing', 'own', 'phone'
   ];
-  const ENDINGS = ['5', '10', '15', 'walk', 'drink', 'self'];
+  const ENDINGS = ['5', '10', '15', 'walk', 'drink', 'song', 'chat', 'self'];
   const RESTORING = ['not', 'bit', 'yes'];
   const DURATION_REPORTS = ['shorter', 'right', 'longer', 'unsure'];
 

@@ -109,12 +109,13 @@ function StudyView() {
 function SetupView() {
   return `<main class="view" data-view="setup">
     <div class="eyebrow"><span class="eyebrow-dot"></span>Research version B</div>
-    <h1>What would suit this break?</h1>
-    <p class="lede">Choose as much or as little as you like, then start.</p>
+    <h1>What do you need from this break?</h1>
+    <p class="lede">Pick one small option. Its stopping point is included.</p>
     <section class="card session-card">
       ${restKindBody(true)}
+      ${selectedRestSummary(state.setup)}
       <div class="spacer-24"></div>
-      ${endingBody(true)}
+      <details class="inline-options"><summary>Change the stopping point <span class="muted">(optional)</span></summary><div class="inline-options-body">${endingBody(true)}</div></details>
       <div class="spacer-24"></div>
       ${reminderBody(true)}
       <div class="button-row">
@@ -142,13 +143,14 @@ function BreakView() {
           <button class="icon-button" data-action="dismiss-reminder" aria-label="Dismiss reminder">${icon('x')}</button>
         </span>
       </div>
+      ${active?.type ? selectedRestSummary(active) : ''}
       <div class="back-action"><button class="primary sky" data-action="return">I’m back</button></div>
     </section>
     ${supportPaused ? '<p class="paused-note">Break support is paused. “I’m back” still works whenever you’re ready.</p>' : `
       <section class="optional-zone" aria-label="Optional break choices">
-        <p class="optional-heading">Make this break your own <span class="muted">(optional, skip entirely)</span></p>
-        ${accordion('kind', 'What kind of rest?', restKindBody(false))}
-        ${accordion('ending', 'How will this end?', endingBody(false))}
+        <p class="optional-heading">A little help, if you want it <span class="muted">(optional)</span></p>
+        ${accordion('kind', 'What might help right now?', restKindBody(false))}
+        ${accordion('ending', 'Change the stopping point', endingBody(false))}
         ${accordion('reminder', 'Quiet reminder', reminderBody(false))}
       </section>
     `}
@@ -171,20 +173,22 @@ function feelingChips() {
 
 function restCards() {
   const suggestions = Model.suggestions(state.setup.feeling);
-  const extras = ['nothing', 'own', 'phone'].map(id => ({ id, ...Model.RESTS[id] }));
-  return `<div class="rest-grid">${[...suggestions, ...extras].map(item =>
+  const suggestedIds = new Set(suggestions.map(item => item.id));
+  const extras = ['nothing', 'own', 'phone'].filter(id => !suggestedIds.has(id)).map(id => ({ id, ...Model.RESTS[id] }));
+  return `<div class="rest-grid">${suggestions.map(item =>
     `<button class="rest-card" data-action="rest-type" data-value="${item.id}" aria-pressed="${state.setup.type === item.id}">
-      <strong>${item.label}</strong><span>${item.detail}</span>
+      <strong>${item.label}</strong><span>${item.detail}</span><em>Stops: ${Model.endingLabel(item.ending)}</em>
     </button>`
-  ).join('')}</div>`;
+  ).join('')}</div>
+  <div class="other-rests"><span>Or choose</span>${extras.map(item => `<button class="pill" data-action="rest-type" data-value="${item.id}" aria-pressed="${state.setup.type === item.id}">${item.label}</button>`).join('')}</div>`;
 }
 
 function restKindBody(setupMode) {
   const usual = data.lastRest;
   return `
-    <p class="section-label">How are you feeling? <span class="muted">(optional)</span></p>
+    <p class="section-label">What do you need right now? <span class="muted">(optional)</span></p>
     ${feelingChips()}
-    <p class="section-label">A few possibilities</p>
+    <p class="section-label">Three small options</p>
     ${usual ? `<button class="pill usual" data-action="use-usual">Use my usual: ${esc(usual.label || Model.RESTS[usual.type]?.label)}</button><div class="spacer-24"></div>` : ''}
     ${restCards()}
     ${state.setup.type === 'own' ? `<div class="own-field"><label class="section-label" for="${setupMode ? 'setup-own' : 'break-own'}">My idea</label><input class="text-input" id="${setupMode ? 'setup-own' : 'break-own'}" maxlength="160" value="${esc(state.setup.ownIdea)}" placeholder="Sit outside, call a friend…"></div>` : ''}
@@ -193,9 +197,18 @@ function restKindBody(setupMode) {
 }
 
 function endingBody() {
-  return `<div class="chips" aria-label="How the break will end">${Model.ENDINGS.map(item =>
+  return `<p class="help ending-help">The option you chose already has a stopping point. Change it only if another one suits you better.</p><div class="chips" aria-label="How the break will end">${Model.endingOptions(state.setup.type).map(item =>
     `<button class="pill" data-action="ending" data-value="${item.id}" aria-pressed="${state.setup.ending === item.id}">${item.label}</button>`
   ).join('')}</div>`;
+}
+
+function selectedRestSummary(rest) {
+  if (!rest?.type) return '';
+  return `<div class="selected-rest" aria-live="polite">
+    <span>Your break</span>
+    <strong>${esc(Model.restLabel(rest))}</strong>
+    <small>Stops: ${esc(Model.endingLabel(rest.ending))}</small>
+  </div>`;
 }
 
 function reminderBody() {
@@ -638,8 +651,10 @@ function handleAction(action, value) {
   }
   if (action === 'rest-type') {
     state.setup.type = value;
+    state.setup.ending = Model.recommendedEnding(value);
+    state.setup.remind = Model.isTimed(state.setup.ending) && data.settings.quietReminders;
     if (value !== 'own') state.setup.ownIdea = '';
-    syncActiveBreak(false);
+    syncActiveBreak(true);
     render(true);
   }
   if (action === 'ending') {
