@@ -110,12 +110,9 @@ function SetupView() {
   return `<main class="view" data-view="setup">
     <div class="eyebrow"><span class="eyebrow-dot"></span>Research version B</div>
     <h1>What do you need from this break?</h1>
-    <p class="lede">Pick one small option. Its stopping point is included.</p>
+    <p class="lede">Tell us what led to the break, then choose from three small options.</p>
     <section class="card session-card">
       ${restKindBody(true)}
-      ${selectedRestSummary(state.setup)}
-      <div class="spacer-24"></div>
-      <details class="inline-options"><summary>Change the stopping point <span class="muted">(optional)</span></summary><div class="inline-options-body">${endingBody(true)}</div></details>
       <div class="spacer-24"></div>
       ${reminderBody(true)}
       <div class="button-row">
@@ -149,8 +146,7 @@ function BreakView() {
     ${supportPaused ? '<p class="paused-note">Break support is paused. “I’m back” still works whenever you’re ready.</p>' : `
       <section class="optional-zone" aria-label="Optional break choices">
         <p class="optional-heading">A little help, if you want it <span class="muted">(optional)</span></p>
-        ${accordion('kind', 'What might help right now?', restKindBody(false))}
-        ${accordion('ending', 'Change the stopping point', endingBody(false))}
+        ${accordion('kind', 'Help me choose this rest', restKindBody(false))}
         ${accordion('reminder', 'Quiet reminder', reminderBody(false))}
       </section>
     `}
@@ -165,14 +161,14 @@ function accordion(name, title, body) {
   </details>`;
 }
 
-function feelingChips() {
-  return `<div class="chips" aria-label="How you feel">${Model.FEELINGS.map(item =>
-    `<button class="pill" data-action="feeling" data-value="${item.id}" aria-pressed="${state.setup.feeling === item.id}">${item.label}</button>`
+function choiceChips(items, action, current, label) {
+  return `<div class="chips" aria-label="${label}">${items.map(item =>
+    `<button class="pill" data-action="${action}" data-value="${item.id}" aria-pressed="${current === item.id}">${item.label}</button>`
   ).join('')}</div>`;
 }
 
 function restCards() {
-  const suggestions = Model.suggestions(state.setup.feeling);
+  const suggestions = Model.suggestions(state.setup.activity, state.setup.fatigue);
   const suggestedIds = new Set(suggestions.map(item => item.id));
   const extras = ['nothing', 'own', 'phone'].filter(id => !suggestedIds.has(id)).map(id => ({ id, ...Model.RESTS[id] }));
   return `<div class="rest-grid">${suggestions.map(item =>
@@ -184,20 +180,38 @@ function restCards() {
 }
 
 function restKindBody(setupMode) {
-  const usual = data.lastRest;
+  const ready = state.setup.activity && state.setup.fatigue;
   return `
-    <p class="section-label">What do you need right now? <span class="muted">(optional)</span></p>
-    ${feelingChips()}
-    <p class="section-label">Three small options</p>
-    ${usual ? `<button class="pill usual" data-action="use-usual">Use my usual: ${esc(usual.label || Model.RESTS[usual.type]?.label)}</button><div class="spacer-24"></div>` : ''}
-    ${restCards()}
-    ${state.setup.type === 'own' ? `<div class="own-field"><label class="section-label" for="${setupMode ? 'setup-own' : 'break-own'}">My idea</label><input class="text-input" id="${setupMode ? 'setup-own' : 'break-own'}" maxlength="160" value="${esc(state.setup.ownIdea)}" placeholder="Sit outside, call a friend…"></div>` : ''}
-    ${state.setup.type === 'phone' ? '<p class="phone-copy">Want to set where this ends? You can skip.</p>' : ''}
+    <div class="guided-step">
+      <p class="section-label"><span class="step-number">1</span> What were you doing?</p>
+      ${choiceChips(Model.ACTIVITIES, 'activity', state.setup.activity, 'What you were doing')}
+    </div>
+    <div class="guided-step">
+      <p class="section-label"><span class="step-number">2</span> Why do you feel tired?</p>
+      ${choiceChips(Model.FATIGUES, 'fatigue', state.setup.fatigue, 'Why you feel tired')}
+    </div>
+    <button class="secondary-button generate-button" data-action="generate-suggestions" ${ready ? '' : 'disabled'}>Show three suggestions</button>
+    ${state.suggestionsReady ? `
+      <div class="guided-step suggestion-step">
+        <p class="section-label"><span class="step-number">3</span> Suggested for this break</p>
+        <p class="help recommendation-reason">Based on what you were doing and what feels tired.</p>
+        ${restCards()}
+      </div>
+      ${state.setup.type === 'own' ? `<div class="own-field"><label class="section-label" for="${setupMode ? 'setup-own' : 'break-own'}">My own rest</label><input class="text-input" id="${setupMode ? 'setup-own' : 'break-own'}" maxlength="160" value="${esc(state.setup.ownIdea)}" placeholder="Sit outside, call a friend…"></div>` : ''}
+      ${state.setup.type === 'phone' ? '<p class="phone-copy">Want to set where this ends? You can skip.</p>' : ''}
+      ${state.setup.type ? `
+        <div class="guided-step duration-step">
+          <p class="section-label"><span class="step-number">4</span> Choose a time or stopping point</p>
+          ${endingBody()}
+        </div>
+        ${selectedRestSummary(state.setup)}
+      ` : ''}
+    ` : ''}
   `;
 }
 
 function endingBody() {
-  return `<p class="help ending-help">The option you chose already has a stopping point. Change it only if another one suits you better.</p><div class="chips" aria-label="How the break will end">${Model.endingOptions(state.setup.type).map(item =>
+  return `<p class="help ending-help">Use a time, keep the suggestion’s natural end, or decide for yourself.</p><div class="chips" aria-label="How the break will end">${Model.endingOptions(state.setup.type).map(item =>
     `<button class="pill" data-action="ending" data-value="${item.id}" aria-pressed="${state.setup.ending === item.id}">${item.label}</button>`
   ).join('')}</div>`;
 }
@@ -326,7 +340,7 @@ function ControlsPanel() {
   return `<div class="panel-backdrop" data-action="close-controls">
     <aside class="side-panel" aria-label="Controls and privacy" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
       <div class="panel-head"><h2>Controls &amp; privacy</h2><button class="icon-button" data-action="close-controls" aria-label="Close controls">${icon('x')}</button></div>
-      <section class="panel-section"><h3>What this uses</h3><p>Your task note, rest type, how you chose to end, and notes you save. Nothing else.</p></section>
+      <section class="panel-section"><h3>What this uses</h3><p>Your task note, study activity, reason for fatigue, rest choice, stopping point, and notes you save. Nothing else.</p></section>
       <section class="panel-section"><h3>What’s shared</h3><p>Nothing. Private to you on this browser profile.</p></section>
       <section class="panel-section">
         ${settingToggle('pause-support', 'Pause support this session', 'Break buttons keep working.', supportPaused)}
@@ -374,6 +388,7 @@ function renderPanels() {
 function beginBreak() {
   const clickedAt = Date.now();
   state.setup = Model.restDraft(data);
+  state.suggestionsReady = false;
   openSections.kind = openSections.ending = openSections.reminder = false;
   forceKindOpen = false;
   if (data.researcher.version === 'B') {
@@ -384,6 +399,8 @@ function beginBreak() {
   }
   state = Model.startBreak(state, data);
   state.activeBreak.startedAt = clickedAt;
+  forceKindOpen = true;
+  openSections.kind = true;
   scheduleReminder(true);
   render();
 }
@@ -403,7 +420,8 @@ function saveLastRest() {
     type: state.setup.type,
     label: Model.restLabel(state.setup),
     ownIdea: state.setup.type === 'own' ? state.setup.ownIdea.trim() : '',
-    feeling: state.setup.feeling,
+    activity: state.setup.activity,
+    fatigue: state.setup.fatigue,
     ending: state.setup.ending,
     remind: state.setup.remind
   };
@@ -418,7 +436,8 @@ function syncActiveBreak(resetReminder = false) {
     type: draft.type,
     label: Model.restLabel(draft),
     ownIdea: draft.type === 'own' ? draft.ownIdea.trim() : '',
-    feeling: draft.feeling,
+    activity: draft.activity,
+    fatigue: draft.fatigue,
     ending: draft.ending,
     remind: draft.remind && Model.isTimed(draft.ending),
     optionalOpened: state.activeBreak.optionalOpened || state.optionalOpen
@@ -508,6 +527,7 @@ function chooseOutcome(outcome) {
     state.view = 'break';
     state.setup.type = '';
     state.setup.ownIdea = '';
+    state.suggestionsReady = Boolean(state.setup.activity && state.setup.fatigue);
     forceKindOpen = true;
     openSections.kind = true;
     render();
@@ -645,8 +665,18 @@ function handleAction(action, value) {
     document.title = 'Rest Without Scrolling';
     render(true);
   }
-  if (action === 'feeling') {
-    state.setup.feeling = value;
+  if (action === 'activity' || action === 'fatigue') {
+    state.setup[action] = value;
+    state.setup.type = '';
+    state.setup.ownIdea = '';
+    state.setup.ending = 'self';
+    state.setup.remind = false;
+    state.suggestionsReady = false;
+    syncActiveBreak(true);
+    render(true);
+  }
+  if (action === 'generate-suggestions' && state.setup.activity && state.setup.fatigue) {
+    state.suggestionsReady = true;
     render(true);
   }
   if (action === 'rest-type') {
@@ -665,6 +695,7 @@ function handleAction(action, value) {
   }
   if (action === 'use-usual' && data.lastRest) {
     state.setup = { ...data.lastRest, remind: false };
+    state.suggestionsReady = true;
     syncActiveBreak(true);
     render(true);
   }

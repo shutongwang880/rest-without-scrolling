@@ -30,7 +30,7 @@ test('new local data is seeded for an immediate demo and has no history', () => 
 test('storage round-trips only approved local fields', () => {
   const storage = memoryStorage();
   const data = Store.defaults();
-  data.lastRest = { type: 'walk', label: 'Walk', ownIdea: '', feeling: 'tired', ending: '10', remind: true };
+  data.lastRest = { type: 'walk', label: 'Walk', ownIdea: '', activity: 'reading', fatigue: 'eyes', ending: '10', remind: true };
   data.history.push({ id: 'n1', restType: 'walk', label: 'Walk', ending: '10', restoring: 'yes', durationReport: 'right', savedAt: 10 });
   data.researcher.logs.push({ id: 'l1', version: 'A', optionalOpened: true, timeToBackMs: 900, outcome: 'study', recordedAt: 20 });
   assert.equal(Store.save(storage, data), true);
@@ -48,9 +48,9 @@ test('invalid imported history, choices and logs are discarded', () => {
   assert.equal(data.researcher.logs.length, 0);
 });
 
-test('feeling-based suggestions change without ranking one correct rest', () => {
-  const groups = Model.FEELINGS.map(item => Model.suggestions(item.id).map(rest => rest.id));
-  assert.equal(new Set(groups.map(group => group.join(','))).size, 5);
+test('activity and fatigue generate three relevant suggestions', () => {
+  const groups = Model.FATIGUES.map(item => Model.suggestions('screen', item.id).map(rest => rest.id));
+  assert.ok(new Set(groups.map(group => group.join(','))).size >= 5);
   groups.forEach(group => assert.equal(group.length, 3));
   assert.ok(Model.RESTS.nothing);
   assert.ok(Model.RESTS.own);
@@ -60,14 +60,22 @@ test('feeling-based suggestions change without ranking one correct rest', () => 
 });
 
 test('every suggested rest includes a concrete stopping point', () => {
-  for (const feeling of Model.FEELINGS) {
-    for (const rest of Model.suggestions(feeling.id)) {
+  for (const fatigue of Model.FATIGUES) {
+    for (const rest of Model.suggestions('reading', fatigue.id)) {
       assert.equal(Model.recommendedEnding(rest.id), rest.ending);
       assert.ok(Model.endingLabel(rest.ending));
     }
   }
   assert.equal(Model.recommendedEnding('song'), 'song');
   assert.equal(Model.endingLabel('song'), 'After one song');
+});
+
+test('the study activity can adjust a recommendation', () => {
+  const screen = Model.suggestions('screen', 'stuck').map(item => item.id);
+  const group = Model.suggestions('group', 'stuck').map(item => item.id);
+  assert.ok(screen.includes('eyes'));
+  assert.ok(group.includes('nothing'));
+  assert.notDeepEqual(screen, group);
 });
 
 test('one-click break snapshots the student intention and starts without a timer', () => {
@@ -137,6 +145,13 @@ test('the implementation exposes the requested component structure and five equa
 test('choosing a suggestion sets its ending in the same interaction', () => {
   assert.match(source, /state\.setup\.ending = Model\.recommendedEnding\(value\)/);
   assert.match(source, /Stops: \$\{Model\.endingLabel\(item\.ending\)\}/);
+});
+
+test('guided rest flow asks about activity and fatigue before suggestions', () => {
+  assert.match(source, /What were you doing\?/);
+  assert.match(source, /Why do you feel tired\?/);
+  assert.match(source, /generate-suggestions/);
+  assert.match(source, /Choose a time or stopping point/);
 });
 
 test('reminder implementation is silent, one-time, dismissible and library-aware', () => {

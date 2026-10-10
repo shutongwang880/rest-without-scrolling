@@ -29,6 +29,8 @@
     'nothing', 'own', 'phone'
   ];
   const ENDINGS = ['5', '10', '15', 'walk', 'drink', 'song', 'chat', 'self'];
+  const ACTIVITIES = ['reading', 'screen', 'class', 'group', 'other'];
+  const FATIGUES = ['eyes', 'body', 'mental', 'stuck', 'social', 'unsure'];
   const RESTORING = ['not', 'bit', 'yes'];
   const DURATION_REPORTS = ['shorter', 'right', 'longer', 'unsure'];
 
@@ -38,7 +40,8 @@
       type: rest.type,
       label: text(rest.label, 120),
       ownIdea: rest.type === 'own' ? text(rest.ownIdea, 160) : '',
-      feeling: text(rest.feeling, 40),
+      activity: ACTIVITIES.includes(rest.activity) ? rest.activity : '',
+      fatigue: FATIGUES.includes(rest.fatigue) ? rest.fatigue : '',
       ending: ENDINGS.includes(rest.ending) ? rest.ending : 'self',
       remind: rest.remind === true
     };
@@ -136,7 +139,7 @@
 
   root.RestStorage = {
     KEY, defaults, clean, load, save, clear,
-    REST_TYPES, ENDINGS, RESTORING, DURATION_REPORTS
+    REST_TYPES, ENDINGS, ACTIVITIES, FATIGUES, RESTORING, DURATION_REPORTS
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.RestStorage;
 })(typeof window !== 'undefined' ? window : globalThis);

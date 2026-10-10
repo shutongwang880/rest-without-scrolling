@@ -1,12 +1,21 @@
 (function (root) {
   'use strict';
 
-  const FEELINGS = [
-    { id: 'tired', label: 'Rest my eyes' },
-    { id: 'bored', label: 'Change the pace' },
-    { id: 'stressed', label: 'Settle my mind' },
-    { id: 'chat', label: 'Talk to someone' },
-    { id: 'unsure', label: 'Not sure' }
+  const ACTIVITIES = [
+    { id: 'reading', label: 'Reading or writing' },
+    { id: 'screen', label: 'Coding or screen work' },
+    { id: 'class', label: 'Class or meeting' },
+    { id: 'group', label: 'Group work' },
+    { id: 'other', label: 'Something else' }
+  ];
+
+  const FATIGUES = [
+    { id: 'eyes', label: 'My eyes feel tired' },
+    { id: 'body', label: 'My body feels stiff' },
+    { id: 'mental', label: 'My mind feels full' },
+    { id: 'stuck', label: 'I feel stuck or bored' },
+    { id: 'social', label: 'I need a social pause' },
+    { id: 'unsure', label: 'I’m not sure' }
   ];
 
   const RESTS = {
@@ -23,11 +32,20 @@
   };
 
   const SUGGESTIONS = {
-    tired: ['eyes', 'water', 'nothing'],
-    bored: ['walk', 'song', 'stretch'],
-    stressed: ['breathe', 'eyes', 'walk'],
-    chat: ['chat', 'walk', 'water'],
+    eyes: ['eyes', 'walk', 'water'],
+    body: ['stretch', 'walk', 'water'],
+    mental: ['breathe', 'nothing', 'song'],
+    stuck: ['walk', 'song', 'stretch'],
+    social: ['chat', 'walk', 'water'],
     unsure: ['song', 'walk', 'nothing']
+  };
+
+  const ACTIVITY_HINTS = {
+    reading: 'eyes',
+    screen: 'eyes',
+    class: 'walk',
+    group: 'nothing',
+    other: 'song'
   };
 
   const ENDINGS = [
@@ -64,13 +82,15 @@
       researcherOpen: false,
       controlsOpen: false,
       summaryOpen: false,
-      endMessage: false
+      endMessage: false,
+      suggestionsReady: false
     };
   }
 
   function restDraft(data) {
     return {
-      feeling: '',
+      activity: '',
+      fatigue: '',
       type: '',
       ownIdea: '',
       ending: 'self',
@@ -78,8 +98,11 @@
     };
   }
 
-  function suggestions(feeling) {
-    return (SUGGESTIONS[feeling] || SUGGESTIONS.unsure).map(id => ({ id, ...RESTS[id] }));
+  function suggestions(activity, fatigue) {
+    const base = [...(SUGGESTIONS[fatigue] || SUGGESTIONS.unsure)];
+    const activityHint = ACTIVITY_HINTS[activity];
+    if (activityHint && !base.includes(activityHint)) base.splice(1, 0, activityHint);
+    return [...new Set(base)].slice(0, 3).map(id => ({ id, ...RESTS[id] }));
   }
 
   function recommendedEnding(type) {
@@ -92,7 +115,7 @@
 
   function endingOptions(type) {
     const recommended = recommendedEnding(type);
-    const ids = [recommended, '5', '10', '15', 'self'];
+    const ids = ['5', '10', '15', recommended, 'self'];
     return [...new Set(ids)].map(id => ENDINGS.find(item => item.id === id)).filter(Boolean);
   }
 
@@ -112,7 +135,8 @@
       type: draft.type,
       label: restLabel(draft),
       ownIdea: draft.type === 'own' ? draft.ownIdea.trim().slice(0, 160) : '',
-      feeling: draft.feeling,
+      activity: draft.activity,
+      fatigue: draft.fatigue,
       ending: draft.ending,
       remind: draft.remind === true && isTimed(draft.ending),
       reminded: false,
@@ -190,7 +214,7 @@
   }
 
   root.RestModel = {
-    FEELINGS, RESTS, SUGGESTIONS, ENDINGS, OUTCOMES,
+    ACTIVITIES, FATIGUES, RESTS, SUGGESTIONS, ACTIVITY_HINTS, ENDINGS, OUTCOMES,
     isTimed, initialState, restDraft, suggestions, recommendedEnding, endingLabel, endingOptions, restLabel,
     startBreak, makeHistoryRecord, insights, cryptoId
   };

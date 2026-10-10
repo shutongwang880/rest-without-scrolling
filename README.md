@@ -6,7 +6,7 @@ A desktop-first, single-page prototype for university students taking breaks dur
 
 1. **Study session:** edit “What I’m doing” and “Next step”. Both fields are seeded for demos and auto-save locally. Select **Take a break** or press **B**.
 2. **Break:** Version A opens immediately after one click. Nothing is blocked and there is no timer, countdown or elapsed-time display. **I’m back** is always available.
-3. **Optional break choices:** the student can name what they need and see three concrete suggestions. Every suggestion includes its own stopping point, such as one song, one loop or five minutes. Selecting a suggestion sets both the activity and its ending in one click. The stopping point can still be changed, and “Use my phone”, “Do nothing” and a personal idea remain available without judgement.
+3. **Guided rest choice:** the student selects what they were doing and why they feel tired. The prototype combines both answers to generate three concrete suggestions. Every suggestion includes a natural stopping point, and the student can still choose 5, 10 or 15 minutes, decide for themselves, use their phone, do nothing, or write a custom rest.
 4. **Back:** the saved study intention appears first. Five identical options support more rest, different rest, study, a changed plan, or ending study.
 5. **Optional note:** a self-reported restoration and duration answer can be saved to the private summary or skipped.
 
@@ -41,4 +41,4 @@ Controls meet a 44px target minimum, have visible keyboard focus, use short neut
 
 Run the JavaScript syntax checks and then node --test model.test.cjs.
 
-The checks cover seeded data, local persistence and sanitization, need-based suggestions with stopping points, one-click break state, reminder consent, private-note validation, insight thresholds, component structure, silent notification behavior, researcher logging, copy rules, accessibility tokens and local assets.
+The checks cover seeded data, local persistence and sanitization, activity-and-fatigue recommendations with stopping points, one-click break state, reminder consent, private-note validation, insight thresholds, component structure, silent notification behavior, researcher logging, copy rules, accessibility tokens and local assets.

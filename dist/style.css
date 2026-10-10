@@ -181,6 +181,16 @@ h3 { font-size: 16px; line-height: 1.4; }
 .inline-options summary { cursor: pointer; color: var(--sage-dark); font-size: 14px; font-weight: 700; }
 .inline-options-body { padding-top: 13px; }
 .ending-help { margin: 0 0 12px; }
+.guided-step + .guided-step { margin-top: 24px; }
+.step-number {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 23px; height: 23px; margin-right: 7px; border-radius: 50%;
+  background: var(--sage-soft); color: var(--sage-dark); font-size: 12px;
+}
+.generate-button { margin-top: 24px; }
+.suggestion-step { padding-top: 23px; border-top: 1px solid var(--line); }
+.recommendation-reason { margin: -3px 0 13px; }
+.duration-step { padding-top: 2px; }
 .phone-copy {
   margin: 14px 0 0; padding: 12px 14px; border-radius: 13px;
   background: var(--sky-soft); color: #3D5969; font-size: 14px;
