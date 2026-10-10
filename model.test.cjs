@@ -144,14 +144,15 @@ test('the implementation exposes the requested component structure and five equa
 
 test('choosing a suggestion sets its ending in the same interaction', () => {
   assert.match(source, /state\.setup\.ending = Model\.recommendedEnding\(value\)/);
-  assert.match(source, /Stops: \$\{Model\.endingLabel\(item\.ending\)\}/);
+  assert.match(source, /Model\.endingLabel\(item\.ending\)/);
 });
 
 test('guided rest flow asks about activity and fatigue before suggestions', () => {
   assert.match(source, /What were you doing\?/);
-  assert.match(source, /Why do you feel tired\?/);
-  assert.match(source, /generate-suggestions/);
-  assert.match(source, /Choose a time or stopping point/);
+  assert.match(source, /What feels tired\?/);
+  assert.match(source, /Three ideas for this break/);
+  assert.match(source, /How long\?/);
+  assert.doesNotMatch(source, /Show three suggestions/);
 });
 
 test('reminder implementation is silent, one-time, dismissible and library-aware', () => {

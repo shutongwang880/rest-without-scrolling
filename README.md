@@ -6,7 +6,7 @@ A desktop-first, single-page prototype for university students taking breaks dur
 
 1. **Study session:** edit “What I’m doing” and “Next step”. Both fields are seeded for demos and auto-save locally. Select **Take a break** or press **B**.
 2. **Break:** Version A opens immediately after one click. Nothing is blocked and there is no timer, countdown or elapsed-time display. **I’m back** is always available.
-3. **Guided rest choice:** the student selects what they were doing and why they feel tired. The prototype combines both answers to generate three concrete suggestions. Every suggestion includes a natural stopping point, and the student can still choose 5, 10 or 15 minutes, decide for themselves, use their phone, do nothing, or write a custom rest.
+3. **Guided rest choice:** the interface shows one decision at a time: study activity, fatigue reason, then three suggestions. Choosing a suggestion reveals its time options. Natural stopping points, 5/10/15 minutes, self-timing, phone use, doing nothing and a custom rest remain available without putting every control on screen at once.
 4. **Back:** the saved study intention appears first. Five identical options support more rest, different rest, study, a changed plan, or ending study.
 5. **Optional note:** a self-reported restoration and duration answer can be saved to the private summary or skipped.
 

@@ -99,10 +99,6 @@ function StudyView() {
       <button class="primary" data-action="take-break">${icon('coffee')}Take a break</button>
       <span class="shortcut">or press B</span>
     </div>
-    <div class="link-row">
-      <button class="link-button" data-action="controls">${icon('shield')}Controls &amp; privacy</button>
-      <button class="link-button" data-action="summary">${icon('chart')}My rest patterns</button>
-    </div>
   </main>`;
 }
 
@@ -110,13 +106,11 @@ function SetupView() {
   return `<main class="view" data-view="setup">
     <div class="eyebrow"><span class="eyebrow-dot"></span>Research version B</div>
     <h1>What do you need from this break?</h1>
-    <p class="lede">Tell us what led to the break, then choose from three small options.</p>
-    <section class="card session-card">
+    <p class="lede">Two quick choices, then three ideas.</p>
+    <section class="guide-card session-card">
       ${restKindBody(true)}
-      <div class="spacer-24"></div>
-      ${reminderBody(true)}
       <div class="button-row">
-        <button class="primary" data-action="start-setup">Start break</button>
+        <button class="primary" data-action="start-setup" ${state.setup.type ? '' : 'disabled'}>Start break</button>
         <button class="text-button" data-action="cancel-setup">Cancel</button>
       </div>
     </section>
@@ -129,10 +123,13 @@ function BreakView() {
     ? `Your break was set for about ${active.ending} minutes. Whenever you’re ready.`
     : 'Whenever you’re ready.';
   return `<main class="view" data-view="break">
-    <section class="break-message">
-      <div class="eyebrow"><span class="eyebrow-dot"></span>On a break</div>
-      <h1>You’re on a break.</h1>
-      <p class="lede">Nothing is blocked. Your device is yours.</p>
+    <section class="break-header">
+      <div>
+        <div class="eyebrow"><span class="eyebrow-dot"></span>On a break</div>
+        <h1>Take a real break.</h1>
+        <p class="lede">No lock, no countdown. Skip the guide if you already know what you need.</p>
+      </div>
+      <button class="secondary-button return-button" data-action="return">I’m back</button>
       <div class="soft-bar" id="reminder-bar" ${active?.reminded ? '' : 'hidden'}>
         <span>${esc(reminderText)}</span>
         <span class="soft-bar-actions">
@@ -140,13 +137,12 @@ function BreakView() {
           <button class="icon-button" data-action="dismiss-reminder" aria-label="Dismiss reminder">${icon('x')}</button>
         </span>
       </div>
-      ${active?.type ? selectedRestSummary(active) : ''}
-      <div class="back-action"><button class="primary sky" data-action="return">I’m back</button></div>
     </section>
     ${supportPaused ? '<p class="paused-note">Break support is paused. “I’m back” still works whenever you’re ready.</p>' : `
-      <section class="optional-zone" aria-label="Optional break choices">
-        <p class="optional-heading">A little help, if you want it <span class="muted">(optional)</span></p>
-        ${accordion('kind', 'Help me choose this rest', restKindBody(false))}
+      <section class="guide-card" aria-label="Optional rest guide">
+        ${restKindBody(false)}
+      </section>
+      <section class="quiet-settings">
         ${accordion('reminder', 'Quiet reminder', reminderBody(false))}
       </section>
     `}
@@ -161,68 +157,48 @@ function accordion(name, title, body) {
   </details>`;
 }
 
-function choiceChips(items, action, current, label) {
-  return `<div class="chips" aria-label="${label}">${items.map(item =>
-    `<button class="pill" data-action="${action}" data-value="${item.id}" aria-pressed="${current === item.id}">${item.label}</button>`
-  ).join('')}</div>`;
-}
-
 function restCards() {
   const suggestions = Model.suggestions(state.setup.activity, state.setup.fatigue);
   const suggestedIds = new Set(suggestions.map(item => item.id));
   const extras = ['nothing', 'own', 'phone'].filter(id => !suggestedIds.has(id)).map(id => ({ id, ...Model.RESTS[id] }));
   return `<div class="rest-grid">${suggestions.map(item =>
     `<button class="rest-card" data-action="rest-type" data-value="${item.id}" aria-pressed="${state.setup.type === item.id}">
-      <strong>${item.label}</strong><span>${item.detail}</span><em>Stops: ${Model.endingLabel(item.ending)}</em>
+      <span class="choice-mark"></span><span class="rest-copy"><strong>${item.label}</strong><span>${item.detail}</span></span><em>${Model.endingLabel(item.ending)}</em>
     </button>`
   ).join('')}</div>
-  <div class="other-rests"><span>Or choose</span>${extras.map(item => `<button class="pill" data-action="rest-type" data-value="${item.id}" aria-pressed="${state.setup.type === item.id}">${item.label}</button>`).join('')}</div>`;
+  <div class="other-rests"><span>Or</span>${extras.map(item => `<button class="mini-option" data-action="rest-type" data-value="${item.id}" aria-pressed="${state.setup.type === item.id}">${item.label}</button>`).join('')}</div>`;
 }
 
 function restKindBody(setupMode) {
-  const ready = state.setup.activity && state.setup.fatigue;
-  return `
-    <div class="guided-step">
-      <p class="section-label"><span class="step-number">1</span> What were you doing?</p>
-      ${choiceChips(Model.ACTIVITIES, 'activity', state.setup.activity, 'What you were doing')}
-    </div>
-    <div class="guided-step">
-      <p class="section-label"><span class="step-number">2</span> Why do you feel tired?</p>
-      ${choiceChips(Model.FATIGUES, 'fatigue', state.setup.fatigue, 'Why you feel tired')}
-    </div>
-    <button class="secondary-button generate-button" data-action="generate-suggestions" ${ready ? '' : 'disabled'}>Show three suggestions</button>
-    ${state.suggestionsReady ? `
-      <div class="guided-step suggestion-step">
-        <p class="section-label"><span class="step-number">3</span> Suggested for this break</p>
-        <p class="help recommendation-reason">Based on what you were doing and what feels tired.</p>
-        ${restCards()}
-      </div>
-      ${state.setup.type === 'own' ? `<div class="own-field"><label class="section-label" for="${setupMode ? 'setup-own' : 'break-own'}">My own rest</label><input class="text-input" id="${setupMode ? 'setup-own' : 'break-own'}" maxlength="160" value="${esc(state.setup.ownIdea)}" placeholder="Sit outside, call a friend…"></div>` : ''}
-      ${state.setup.type === 'phone' ? '<p class="phone-copy">Want to set where this ends? You can skip.</p>' : ''}
-      ${state.setup.type ? `
-        <div class="guided-step duration-step">
-          <p class="section-label"><span class="step-number">4</span> Choose a time or stopping point</p>
-          ${endingBody()}
-        </div>
-        ${selectedRestSummary(state.setup)}
-      ` : ''}
-    ` : ''}
-  `;
+  if (!state.setup.activity) {
+    return `<div class="guide-progress step-1"><span>1 of 3</span><i></i></div>
+      <h2>What were you doing?</h2>
+      <p class="guide-help">Choose the closest match.</p>
+      <div class="choice-list">${Model.ACTIVITIES.map(item => `<button class="choice-row" data-action="activity" data-value="${item.id}"><span>${item.label}</span><b>→</b></button>`).join('')}</div>`;
+  }
+  if (!state.setup.fatigue) {
+    return `<div class="guide-progress step-2"><span>2 of 3</span><i></i></div>
+      <button class="guide-back" data-action="guide-back">← Back</button>
+      <h2>What feels tired?</h2>
+      <p class="guide-help">Choose what you notice most.</p>
+      <div class="choice-list">${Model.FATIGUES.map(item => `<button class="choice-row" data-action="fatigue" data-value="${item.id}"><span>${item.label}</span><b>→</b></button>`).join('')}</div>`;
+  }
+  const activity = Model.ACTIVITIES.find(item => item.id === state.setup.activity)?.label || '';
+  const fatigue = Model.FATIGUES.find(item => item.id === state.setup.fatigue)?.label || '';
+  return `<div class="guide-progress step-3"><span>3 of 3</span><i></i></div>
+    <div class="guide-context"><span>${activity} · ${fatigue}</span><button data-action="restart-guide">Change</button></div>
+    <h2>Three ideas for this break</h2>
+    <p class="guide-help">Pick one, or use your own idea.</p>
+    ${restCards()}
+    ${state.setup.type === 'own' ? `<div class="own-field"><label for="${setupMode ? 'setup-own' : 'break-own'}">What would you like to do?</label><input class="text-input" id="${setupMode ? 'setup-own' : 'break-own'}" maxlength="160" value="${esc(state.setup.ownIdea)}" placeholder="Sit outside, call a friend…"></div>` : ''}
+    ${state.setup.type === 'phone' ? '<p class="phone-copy">You can add an end point below, or leave it open.</p>' : ''}
+    ${state.setup.type ? `<div class="duration-step"><p class="duration-label">How long?</p>${endingBody()}</div>` : ''}`;
 }
 
 function endingBody() {
-  return `<p class="help ending-help">Use a time, keep the suggestion’s natural end, or decide for yourself.</p><div class="chips" aria-label="How the break will end">${Model.endingOptions(state.setup.type).map(item =>
+  return `<div class="chips duration-options" aria-label="How the break will end">${Model.endingOptions(state.setup.type).map(item =>
     `<button class="pill" data-action="ending" data-value="${item.id}" aria-pressed="${state.setup.ending === item.id}">${item.label}</button>`
   ).join('')}</div>`;
-}
-
-function selectedRestSummary(rest) {
-  if (!rest?.type) return '';
-  return `<div class="selected-rest" aria-live="polite">
-    <span>Your break</span>
-    <strong>${esc(Model.restLabel(rest))}</strong>
-    <small>Stops: ${esc(Model.endingLabel(rest.ending))}</small>
-  </div>`;
 }
 
 function reminderBody() {
@@ -671,12 +647,25 @@ function handleAction(action, value) {
     state.setup.ownIdea = '';
     state.setup.ending = 'self';
     state.setup.remind = false;
+    state.suggestionsReady = action === 'fatigue' && Boolean(state.setup.activity);
+    syncActiveBreak(true);
+    render(true);
+  }
+  if (action === 'guide-back') {
+    state.setup.activity = '';
+    state.setup.fatigue = '';
+    state.setup.type = '';
+    state.setup.ownIdea = '';
+    state.setup.ending = 'self';
+    state.setup.remind = false;
     state.suggestionsReady = false;
     syncActiveBreak(true);
     render(true);
   }
-  if (action === 'generate-suggestions' && state.setup.activity && state.setup.fatigue) {
-    state.suggestionsReady = true;
+  if (action === 'restart-guide') {
+    state.setup = Model.restDraft(data);
+    state.suggestionsReady = false;
+    syncActiveBreak(true);
     render(true);
   }
   if (action === 'rest-type') {
