@@ -26,27 +26,43 @@ const options={
 };
 const scroll={id:'scroll',title:'Scroll, on purpose',description:'That can be the break you want, too.',instruction:'Use whichever app you had in mind. You can choose a stopping point, or leave it open. This page won’t watch or block it.',cue:'After this video or thread'};
 const own={id:'own',title:'Something of my own',description:'Choose what works for you.',instruction:'You can make your own kind of break.',cue:''};
-function create(){return {view:'choose',need:'unsure',selected:null,custom:'',feedback:'',decision:null,enabled:true};}
-function getOptions(s){
- const list=[...(options[s.need]||options.unsure),options['switch-off'][1],scroll,own];
- return list.filter((x,i)=>list.findIndex(y=>y.id===x.id)===i);
-}
-function transition(s,action){
- const n={...s};const fail=()=>{throw new Error('Invalid break action: '+action.type)};
- switch(action.type){
- case'NEED':if(s.view!=='choose'||!needs.some(x=>x.id===action.value))fail();n.need=action.value;n.selected=null;n.custom='';break;
- case'SELECT':{if(s.view!=='choose')fail();const chosen=getOptions(s).find(x=>x.id===action.value);if(!chosen)fail();n.selected=chosen;n.custom='';break;}
- case'START':if(s.view!=='choose'||!s.selected||typeof action.custom!=='string')fail();if(s.selected.id==='own'&&!action.custom.trim())fail();n.custom=action.custom.trim().slice(0,160);n.view='rest';n.feedback='';n.decision=null;break;
- case'RETURN':if(s.view!=='rest')fail();n.view='next';break;
- case'ALREADY':return {...create(),view:'next',selected:scroll};
- case'FEEDBACK':if(s.view!=='next'||!['helped','same','more'].includes(action.value))fail();n.feedback=action.value;break;
- case'CONTINUE':if(s.view!=='next')fail();n.view='rest';n.decision=null;break;
- case'CHANGE':n.view='choose';n.selected=null;n.custom='';n.decision=null;n.feedback='';break;
- case'DECIDE':if(s.view!=='next'||!['study','plan','finish'].includes(action.value))fail();n.decision=action.value;break;
- case'OFF':n.enabled=false;n.view='off';break;
- case'RESET':return create();
+const boundaries={self:"I’ll come back myself",'5':'About 5 minutes','10':'About 10 minutes','15':'About 15 minutes',lap:'After one lap',drink:'When I finish this drink',event:'Another stopping point'};
+const ratings={not:'Not really',some:'A little',yes:'Yes'};
+const isTimed=boundary=>['5','10','15'].includes(boundary);
+const text=(x,max=300)=>typeof x==='string'?x.trim().slice(0,max):'';
+function create(intention={task:'',next:''}){return {view:'study',intention:{task:text(intention.task),next:text(intention.next)},snapshot:null,need:'unsure',selected:null,custom:'',boundary:'self',event:'',remind:false,deadline:null,notice:false,breakId:null,feedback:'',overrun:'',saved:false,decision:null,enabled:true};}
+function allActivities(){return [...Object.values(options).flat(),scroll,own];}
+function getOptions(s){const list=[...(options[s.need]||options.unsure),options['switch-off'][1],scroll,own];return list.filter((x,i)=>list.findIndex(y=>y.id===x.id)===i);}
+function boundaryLabel(s){return s.boundary==='event'?s.event:boundaries[s.boundary];}
+function transition(s,a,now=Date.now()){
+ const n={...s};const fail=()=>{throw new Error('Invalid break action: '+a.type)};
+ switch(a.type){
+ case'INTENTION':n.intention={task:text(a.task),next:text(a.next)};break;
+ case'BEGIN':n.view='choose';n.enabled=true;n.selected=null;n.custom='';n.boundary='self';n.event='';n.remind=false;n.decision=null;n.deadline=null;break;
+ case'NEED':if(s.view!=='choose'||!needs.some(x=>x.id===a.value))fail();n.need=a.value;n.selected=null;n.custom='';break;
+ case'SELECT':{if(s.view!=='choose')fail();const chosen=getOptions(s).find(x=>x.id===a.value);if(!chosen)fail();n.selected=chosen;n.custom='';break;}
+ case'BOUNDARY':if(!Object.hasOwn(boundaries,a.value))fail();n.boundary=a.value;n.remind=false;break;
+ case'REMIND':if(a.value&&!isTimed(s.boundary))fail();n.remind=!!a.value;break;
+ case'FAVORITE':{const f=a.favorite;const activity=allActivities().find(x=>x.id===f?.activity);if(!activity||!Object.hasOwn(boundaries,f.boundary))fail();n.selected=activity;n.custom=text(f.custom,160);n.boundary=f.boundary;n.event=text(f.event,160);n.remind=false;n.view='choose';break;}
+ case'START':if(s.view!=='choose'||!s.selected||!text(a.id,100))fail();if(s.selected.id==='own'&&!text(s.custom,160))fail();if(s.boundary==='event'&&!text(s.event,160))fail();n.snapshot={...s.intention};n.custom=text(s.custom,160);n.event=text(s.event,160);n.breakId=text(a.id,100);n.view='rest';n.feedback='';n.overrun='';n.saved=false;n.decision=null;n.notice=false;n.deadline=s.remind&&isTimed(s.boundary)?now+Number(s.boundary)*60000:null;break;
+ case'TICK':if(s.enabled&&s.view==='rest'&&s.deadline!==null&&now>=s.deadline){n.notice=true;n.deadline=null;n.remind=false;}break;
+ case'DISMISS':case'CANCEL_REMINDER':n.notice=false;n.deadline=null;n.remind=false;break;
+ case'RETURN':if(s.view!=='rest')fail();n.view='next';n.deadline=null;n.notice=false;n.remind=false;break;
+ case'FEEDBACK':if(s.view!=='next'||!Object.hasOwn(ratings,a.value))fail();n.feedback=a.value;n.saved=false;break;
+ case'OVERRUN':if(s.view!=='next'||!['yes','no',''].includes(a.value))fail();n.overrun=a.value;n.saved=false;break;
+ case'SAVED':n.saved=true;break;
+ case'CONTINUE':if(s.view!=='next')fail();n.view='rest';n.decision=null;n.deadline=null;n.notice=false;n.remind=false;break;
+ case'CHANGE':n.view='choose';n.selected=null;n.custom='';n.boundary='self';n.event='';n.remind=false;n.deadline=null;n.notice=false;n.decision=null;n.feedback='';n.overrun='';break;
+ case'DECIDE':if(s.view!=='next'||!['study','plan','finish'].includes(a.value))fail();n.decision=a.value;break;
+ case'OFF':n.enabled=false;n.view='off';n.deadline=null;n.notice=false;n.remind=false;break;
+ case'RESET':return create(s.intention);
  default:fail();
  }return n;
 }
-const api={needs,getOptions,create,transition};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PauseModel=api;
+function record(s){if(!s.breakId||!s.selected||!Object.hasOwn(ratings,s.feedback))throw new Error('Choose a reflection before saving.');return {id:s.breakId,activity:s.selected.id,title:s.custom||s.selected.title,intention:{...s.snapshot},boundary:s.boundary,ending:boundaryLabel(s),rating:s.feedback,overrun:s.overrun||null};}
+function summary(records){
+ const groups=new Map();for(const r of records){const key=r.activity==='own'?r.title:r.activity;if(!groups.has(key))groups.set(key,{title:r.title,total:0,restored:0});const g=groups.get(key);g.total++;if(r.rating==='yes')g.restored++;}
+ return {activities:[...groups.values()].filter(x=>x.total>=3),open:records.filter(r=>r.boundary==='self'&&r.overrun!==null),bounded:records.filter(r=>r.boundary!=='self'&&r.overrun!==null)};
+}
+const api={needs,ratings,boundaries,isTimed,getOptions,allActivities,boundaryLabel,create,transition,record,summary};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PauseModel=api;
 })(typeof window!=='undefined'?window:globalThis);

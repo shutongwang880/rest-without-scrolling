@@ -1,16 +1,18 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#faf9f6"><meta name="description" content="Choose a break that fits what you need, take your time, and decide what comes next. No timers or tracking.">
+<meta name="theme-color" content="#faf9f6"><meta name="description" content="Choose your own ending for a break, keep a next step to return to, and learn from optional private reflections.">
 <title>Pause / Rest without scrolling</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23b52e1b'/%3E%3Cpath d='M24 17v30M40 17v30' stroke='%23fff' stroke-width='7'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css"></head><body>
 <div class="page">
-<header><a href="./" class="wordmark" aria-label="Pause home">pause<span> / </span></a><span class="project-name">Rest without scrolling</span><button id="stop" class="text-button">Turn off</button></header>
-<nav aria-label="Your break" class="progress"><ol><li data-step="choose"><span>1</span> Choose a break</li><li data-step="rest"><span>2</span> Take your break</li><li data-step="next"><span>3</span> Choose what’s next</li></ol></nav>
+<header><a href="./" class="wordmark" aria-label="Pause home">pause<span> / </span></a><span class="project-name">Rest without scrolling</span><div class="header-actions"><button id="summary-open" class="text-button">My summary</button><button id="controls-open" class="text-button">Controls</button></div></header>
+<nav aria-label="Your break" class="progress"><ol><li data-step="choose"><span>1</span> Before your break</li><li data-step="rest"><span>2</span> Take your break</li><li data-step="next"><span>3</span> Back &amp; decide</li></ol></nav>
 <main id="main" tabindex="-1"></main>
-<footer><span>No timer. No tracking.</span><button class="text-button" id="privacy-open">About your information</button></footer>
+<footer><span>No app tracking. No lockouts.</span><button class="text-button" id="stop">Turn support off</button></footer>
 </div>
-<dialog id="privacy"><div class="dialog-head"><h2>Your information</h2><button class="close-button" id="privacy-close" aria-label="Close information">×</button></div><p>Pause uses only what you choose or type on this page. Those choices stay in this tab and clear when you reload.</p><p>There are no timers, notifications, saved logs, or analytics. Pause cannot see your apps, browsing, messages, or whether you are scrolling.</p><p>You can leave at any time. Your device stays available.</p></dialog>
-<script src="model.js"></script><script src="app.js"></script>
+<dialog id="controls"><div class="dialog-head"><h2>Your controls</h2><button class="close-button" data-close="controls" aria-label="Close controls">×</button></div><div id="controls-body"></div></dialog>
+<dialog id="summary"><div class="dialog-head"><h2>My private summary</h2><button class="close-button" data-close="summary" aria-label="Close summary">×</button></div><div id="summary-body"></div></dialog>
+<div id="status" class="status" role="status" hidden></div>
+<script src="model.js"></script><script src="storage.js"></script><script src="app.js"></script>
 </body></html>
