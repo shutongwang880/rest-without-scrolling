@@ -4,6 +4,10 @@ A lightweight desktop web prototype that helps university students take intentio
 
 The prototype asks what the student was doing and what feels tired, then offers three small rest suggestions with clear stopping points. Students remain free to choose a duration, use their own idea, keep resting, change their plan, or end the study session.
 
+## Live demo
+
+[Open the public prototype](https://shutongwang880.github.io/rest-without-scrolling/)
+
 ## Why this exists
 
 Students often open TikTok, Instagram, or YouTube when they feel tired after studying. A short break can then become prolonged scrolling without providing the recovery they expected.
