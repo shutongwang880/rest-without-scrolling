@@ -60,11 +60,10 @@
   ];
 
   const OUTCOMES = [
-    { id: 'keep', label: 'Keep resting' },
-    { id: 'different', label: 'Try a different rest' },
-    { id: 'study', label: 'Go back to studying' },
-    { id: 'plan', label: 'Change my plan' },
-    { id: 'end', label: 'End study for today' }
+    { id: 'study', label: 'Return to my next step', detail: 'Pick up the small cue you left for yourself.' },
+    { id: 'keep', label: 'Take more rest', detail: 'Keep this pause open for as long as you need.' },
+    { id: 'plan', label: 'Change my plan', detail: 'Make the next step smaller or choose something else.' },
+    { id: 'end', label: 'Finish for today', detail: 'Close the session without a score or explanation.' }
   ];
 
   const isTimed = ending => ['5', '10', '15'].includes(ending);

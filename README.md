@@ -1,8 +1,8 @@
 # Rest Without Scrolling
 
-A lightweight desktop web prototype that helps university students take intentional breaks without locking their device, monitoring their activity, or pressuring them to return immediately.
+A lightweight desktop web prototype that helps university students deliberately move between study, rest, return, a changed plan, or closing for the day — without locking their device, monitoring their activity, or pressuring them to return.
 
-The prototype asks what the student was doing and what feels tired, then offers three small rest suggestions with clear stopping points. Students remain free to choose a duration, use their own idea, keep resting, change their plan, or end the study session.
+The prototype centres intentional decision-making rather than screen-time reduction. Students can leave an optional re-entry cue, use a pause suggestion or their own idea, select an optional stopping point, then choose what comes next without judgement.
 
 ## Live demo
 
@@ -16,44 +16,28 @@ This project treats rest as legitimate. It supports a clearer start and end to a
 
 ## Workflow
 
-### 1. Save a way back
+### 1. Choose an entry
 
-Before the break, the student can record:
+The home screen recognises two real situations:
 
-- what they are working on;
-- the next small step.
+- **I want to take a break** opens a simple pause picker before the student steps away.
+- **I’ve been scrolling for a while** lets the student self-identify that they want help and goes directly to the decision screen.
 
-These notes make returning easier, but both fields are optional.
+The tool never watches other apps or infers when a pause has become too long.
 
-### 2. Understand the situation
+### 2. Choose a pause
 
-The rest guide asks one question at a time:
+The planned-pause path presents three simple options immediately:
 
-1. **What were you doing?**
-
-   Examples include reading or writing, screen work, a class or meeting, and group work.
-2. **What feels tired?**
-
-   Examples include tired eyes, a stiff body, a full mind, feeling stuck, or needing a social pause.
-
-### 3. Choose a suggested rest
-
-The prototype combines both answers and presents three relevant options, such as:
-
-- rest your eyes for five minutes;
+- rest eyes for five minutes;
 - walk one loop;
-- stretch for five minutes;
-- listen to one song;
-- get water or a snack;
-- have one short conversation;
-- sit quietly and breathe;
-- do nothing for a while.
+- get water or a snack.
 
-Each suggestion has a clear stopping point. The student can also write a custom rest, use their phone, or leave the break open-ended.
+Students can also choose an open rest, their own idea, or phone use. **Help me choose** is available on demand; it asks only what would feel useful, then provides three tailored ideas.
 
-### 4. Choose a duration
+### 3. Choose a boundary if useful
 
-After choosing a rest, the student may select:
+Suggested pauses keep their natural stopping point. Only an open rest, a self-chosen activity, or phone use shows the optional boundary choices:
 
 - 5 minutes;
 - 10 minutes;
@@ -63,27 +47,26 @@ After choosing a rest, the student may select:
 
 A single quiet reminder is available for timed breaks. It is optional, silent, and can be ignored.
 
-### 5. Decide what happens next
+### 4. Choose what happens next
 
-When the student returns, the saved task and next step appear with five equally weighted choices:
+Both entry paths meet at the same four equally weighted choices:
 
-- keep resting;
-- try a different rest;
-- go back to studying;
+- return to the next small step;
+- take more rest;
 - change the plan;
-- end study for today.
+- finish for today.
 
-An optional check-in records whether the break felt restoring and whether it lasted longer than expected. Saved notes stay on the device and can form a private summary after repeated use.
+Choosing to return opens an optional “one small way back” cue after the decision, not before the break. Finishing needs no checklist; a student can optionally leave a new starting cue and configure the optional one-time quiet pause reminder for a future pause.
 
 ## Design principles
 
 - **Student-led:** the student starts, changes, and ends the break.
 - **No restriction:** the prototype never locks the device or blocks another app.
-- **No monitoring:** it does not read browsing history, screen content, or app usage.
+- **No monitoring:** it does not read browsing history, screen content, app usage, or notifications.
 - **Progressive disclosure:** only one decision is shown at a time.
-- **Neutral language:** returning to study is one valid option among several.
+- **Neutral language:** returning, resting longer, changing plans, and finishing are equally valid.
 - **Clear stopping points:** suggestions favour finite activities over endless feeds.
-- **Optional reflection:** recovery matters more than returning quickly.
+- **Optional reflection:** recovery matters more than returning quickly; there are no scores, streaks, rankings, or time-wasted messages.
 
 ## Run locally
 

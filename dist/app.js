@@ -19,8 +19,7 @@ let toastTimer = null;
 let deleteSummaryConfirm = false;
 let deleteControlsConfirm = false;
 let permissionExplain = false;
-let forceKindOpen = false;
-const openSections = { kind: false, ending: false, reminder: false, note: false };
+const openSections = { help: false, ending: false, reminder: false, note: false };
 
 const iconPaths = {
   shield: '<path d="M12 3 4.5 6v5.4c0 4.8 3.2 8.2 7.5 9.6 4.3-1.4 7.5-4.8 7.5-9.6V6L12 3Z"/><path d="m9 12 2 2 4-5"/>',
@@ -28,6 +27,7 @@ const iconPaths = {
   x: '<path d="m6 6 12 12M18 6 6 18"/>',
   arrow: '<path d="m15 18-6-6 6-6"/>',
   coffee: '<path d="M4 8h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8Zm12 2h2a3 3 0 0 1 0 6h-2"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/>',
   bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/>',
   pause: '<path d="M9 5v14M15 5v14"/>',
   book: '<path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Zm16 0A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z"/>',
@@ -62,13 +62,12 @@ function showToast(message) {
 }
 
 function header() {
-  const subview = ['summary', 'end'].includes(state.view);
+  const subview = ['end', 'resume'].includes(state.view);
   return `<header class="topbar">
-    <div class="brand"><span class="brand-mark">${icon('pause')}</span><span>Rest Without Scrolling</span></div>
+    <div class="brand"><span class="brand-mark">${icon('pause')}</span><span>Pause</span></div>
     <div class="top-actions">
       ${subview ? `<button class="icon-button with-label" data-action="back-view">${icon('arrow')}<span>Back</span></button>` : ''}
-      <button class="icon-button with-label" data-action="summary" aria-label="My rest patterns">${icon('chart')}<span>My rest patterns</span></button>
-      <button class="icon-button" data-action="controls" aria-label="Controls and privacy">${icon('shield')}</button>
+      <button class="icon-button with-label" data-action="controls" aria-label="Privacy and reminder choices">${icon('shield')}<span>Privacy</span></button>
     </div>
   </header>`;
 }
@@ -79,39 +78,49 @@ function shell(content) {
   renderPanels();
 }
 
+function decisionPath(current) {
+  const steps = [
+    ['intention', 'Set an intention'],
+    ['pause', 'Pause with purpose'],
+    ['choose', 'Choose what is next']
+  ];
+  return `<ol class="decision-path" aria-label="Your pause flow">${steps.map(([id, label], index) =>
+    `<li class="${id === current ? 'is-current' : ''}"><span>${index + 1}</span>${label}</li>`
+  ).join('')}</ol>`;
+}
+
 function StudyView() {
   return `<main class="view" data-view="study">
-    <div class="eyebrow"><span class="eyebrow-dot"></span>Studying</div>
-    <h1>Keep your place.<br>Take your break.</h1>
-    <p class="lede">Leave yourself one clear step to return to, if you like.</p>
-    <section class="card session-card" aria-label="Study intention">
-      <div class="field">
-        <label for="study-task">What I’m doing</label>
-        <input class="text-input" id="study-task" maxlength="240" value="${esc(state.session.task)}" placeholder="Essay draft, intro">
-      </div>
-      <div class="field">
-        <label for="study-next">Next step</label>
-        <input class="text-input" id="study-next" maxlength="240" value="${esc(state.session.next)}" placeholder="Write the first sentence of paragraph 2">
-      </div>
-      <p class="help">Saved on this device as you type. Empty works too.</p>
+    <div class="eyebrow"><span class="eyebrow-dot"></span>Your study space</div>
+    <h1>What do you need<br>right now?</h1>
+    <p class="lede">Choose the entrance that matches this moment. You can change your mind at any point.</p>
+    <section class="entry-grid" aria-label="Choose how to begin">
+      <button class="entry-card" data-action="plan-pause">
+        <span class="entry-icon">${icon('coffee')}</span>
+        <span class="entry-copy"><strong>I want to take a break</strong><span>Choose a pause before you step away.</span></span>
+        <b aria-hidden="true">→</b>
+      </button>
+      <button class="entry-card entry-card-sky" data-action="after-scroll">
+        <span class="entry-icon">${icon('phone')}</span>
+        <span class="entry-copy"><strong>I’ve been scrolling for a while</strong><span>Skip the setup and decide what feels right now.</span></span>
+        <b aria-hidden="true">→</b>
+      </button>
     </section>
-    <div class="start-row">
-      <button class="primary" data-action="take-break">${icon('coffee')}Take a break</button>
-      <span class="shortcut">or press B</span>
-    </div>
+    <p class="autonomy-note">This tool does not detect scrolling or watch your screen. The second path appears only when you choose it.</p>
   </main>`;
 }
 
 function SetupView() {
   return `<main class="view" data-view="setup">
-    <div class="eyebrow"><span class="eyebrow-dot"></span>Research version B</div>
-    <h1>What do you need from this break?</h1>
-    <p class="lede">Two quick choices, then three ideas.</p>
+    ${decisionPath('pause')}
+    <div class="eyebrow"><span class="eyebrow-dot"></span>Choose your pause</div>
+    <h1>How would you like<br>to take a break?</h1>
+    <p class="lede">Pick a simple pause, decide for yourself, or ask for ideas only if you want them.</p>
     <section class="guide-card session-card">
-      ${restKindBody(true)}
+      ${restKindBody()}
       <div class="button-row">
-        <button class="primary" data-action="start-setup" ${state.setup.type ? '' : 'disabled'}>Start break</button>
-        <button class="text-button" data-action="cancel-setup">Cancel</button>
+        <button class="primary" data-action="start-setup" ${state.setup.type ? '' : 'disabled'}>Begin my pause</button>
+        <button class="text-button" data-action="cancel-setup">Keep studying</button>
       </div>
     </section>
   </main>`;
@@ -125,74 +134,70 @@ function BreakView() {
   return `<main class="view" data-view="break">
     <section class="break-header">
       <div>
-        <div class="eyebrow"><span class="eyebrow-dot"></span>On a break</div>
-        <h1>Take a real break.</h1>
-        <p class="lede">No lock, no countdown. Skip the guide if you already know what you need.</p>
+        ${decisionPath('pause')}
+        <div class="eyebrow"><span class="eyebrow-dot"></span>On a pause</div>
+        <h1>Take the pause<br>you need.</h1>
+        <p class="lede">No lock, no judgement, and no required countdown. A phone break can be a real break too.</p>
       </div>
-      <button class="secondary-button return-button" data-action="return">I’m back</button>
+      <button class="secondary-button return-button" data-action="return">I’m ready to choose</button>
       <div class="soft-bar" id="reminder-bar" ${active?.reminded ? '' : 'hidden'}>
         <span>${esc(reminderText)}</span>
         <span class="soft-bar-actions">
-          <button class="secondary-button" data-action="return">I’m ready</button>
+          <button class="secondary-button" data-action="return">Choose what is next</button>
           <button class="icon-button" data-action="dismiss-reminder" aria-label="Dismiss reminder">${icon('x')}</button>
         </span>
       </div>
     </section>
-    ${supportPaused ? '<p class="paused-note">Break support is paused. “I’m back” still works whenever you’re ready.</p>' : `
-      <section class="guide-card" aria-label="Optional rest guide">
-        ${restKindBody(false)}
-      </section>
-      <section class="quiet-settings">
-        ${accordion('reminder', 'Quiet reminder', reminderBody(false))}
-      </section>
-    `}
+    <section class="card pause-summary" aria-label="Current pause">
+      <span class="entry-icon">${icon('coffee')}</span>
+      <div><p class="label">YOUR PAUSE</p><h2>${esc(active?.label || 'An open pause')}</h2><p>${esc(Model.endingLabel(active?.ending))}. You decide when it is enough.</p></div>
+    </section>
+    ${supportPaused ? '<p class="paused-note">Pause support is off for now. “I’m ready to choose” still works whenever you want.</p>' : ''}
   </main>`;
 }
 
 function accordion(name, title, body) {
-  const open = openSections[name] || (name === 'kind' && forceKindOpen);
+  const open = openSections[name];
   return `<details class="accordion" data-section="${name}" ${open ? 'open' : ''}>
     <summary>${title}</summary>
     <div class="accordion-body">${body}</div>
   </details>`;
 }
 
-function restCards() {
-  const suggestions = Model.suggestions(state.setup.activity, state.setup.fatigue);
-  const suggestedIds = new Set(suggestions.map(item => item.id));
-  const extras = ['nothing', 'own', 'phone'].filter(id => !suggestedIds.has(id)).map(id => ({ id, ...Model.RESTS[id] }));
-  return `<div class="rest-grid">${suggestions.map(item =>
+function restCards(items) {
+  return `<div class="rest-grid">${items.map(item =>
     `<button class="rest-card" data-action="rest-type" data-value="${item.id}" aria-pressed="${state.setup.type === item.id}">
       <span class="choice-mark"></span><span class="rest-copy"><strong>${item.label}</strong><span>${item.detail}</span></span><em>${Model.endingLabel(item.ending)}</em>
     </button>`
-  ).join('')}</div>
-  <div class="other-rests"><span>Or</span>${extras.map(item => `<button class="mini-option" data-action="rest-type" data-value="${item.id}" aria-pressed="${state.setup.type === item.id}">${item.label}</button>`).join('')}</div>`;
+  ).join('')}</div>`;
 }
 
-function restKindBody(setupMode) {
-  if (!state.setup.activity) {
-    return `<div class="guide-progress step-1"><span>1 of 3</span><i></i></div>
-      <h2>What were you doing?</h2>
-      <p class="guide-help">Choose the closest match.</p>
-      <div class="choice-list">${Model.ACTIVITIES.map(item => `<button class="choice-row" data-action="activity" data-value="${item.id}"><span>${item.label}</span><b>→</b></button>`).join('')}</div>`;
-  }
+function helpChooseBody() {
   if (!state.setup.fatigue) {
-    return `<div class="guide-progress step-2"><span>2 of 3</span><i></i></div>
-      <button class="guide-back" data-action="guide-back">← Back</button>
-      <h2>What feels tired?</h2>
-      <p class="guide-help">Choose what you notice most.</p>
-      <div class="choice-list">${Model.FATIGUES.map(item => `<button class="choice-row" data-action="fatigue" data-value="${item.id}"><span>${item.label}</span><b>→</b></button>`).join('')}</div>`;
+    return `<p class="guide-help">Choose what you notice most, and we will offer three gentle ideas.</p>
+      <div class="choice-list">${Model.FATIGUES.map(item => `<button class="choice-row" data-action="help-fatigue" data-value="${item.id}"><span>${item.label}</span><b>→</b></button>`).join('')}</div>`;
   }
-  const activity = Model.ACTIVITIES.find(item => item.id === state.setup.activity)?.label || '';
   const fatigue = Model.FATIGUES.find(item => item.id === state.setup.fatigue)?.label || '';
-  return `<div class="guide-progress step-3"><span>3 of 3</span><i></i></div>
-    <div class="guide-context"><span>${activity} · ${fatigue}</span><button data-action="restart-guide">Change</button></div>
-    <h2>Three ideas for this break</h2>
-    <p class="guide-help">Pick one, or use your own idea.</p>
-    ${restCards()}
-    ${state.setup.type === 'own' ? `<div class="own-field"><label for="${setupMode ? 'setup-own' : 'break-own'}">What would you like to do?</label><input class="text-input" id="${setupMode ? 'setup-own' : 'break-own'}" maxlength="160" value="${esc(state.setup.ownIdea)}" placeholder="Sit outside, call a friend…"></div>` : ''}
-    ${state.setup.type === 'phone' ? '<p class="phone-copy">You can add an end point below, or leave it open.</p>' : ''}
-    ${state.setup.type ? `<div class="duration-step"><p class="duration-label">How long?</p>${endingBody()}</div>` : ''}`;
+  const suggestions = Model.suggestions('other', state.setup.fatigue);
+  return `<div class="guide-context"><span>Ideas for: ${fatigue}</span><button data-action="clear-help">Start over</button></div>
+    ${restCards(suggestions)}`;
+}
+
+function restKindBody() {
+  const simpleOptions = ['eyes', 'walk', 'water'].map(id => ({ id, ...Model.RESTS[id] }));
+  const hasOpenBoundary = ['nothing', 'own', 'phone'].includes(state.setup.type);
+  return `<h2>How would you like to take a break?</h2>
+    <p class="guide-help">Choose a simple idea, or decide for yourself.</p>
+    ${restCards(simpleOptions)}
+    <div class="other-rests"><span>Or</span>
+      <button class="mini-option" data-action="rest-type" data-value="nothing" aria-pressed="${state.setup.type === 'nothing'}">Rest without a plan</button>
+      <button class="mini-option" data-action="rest-type" data-value="own" aria-pressed="${state.setup.type === 'own'}">I’ll choose myself</button>
+      <button class="mini-option" data-action="rest-type" data-value="phone" aria-pressed="${state.setup.type === 'phone'}">Use my phone</button>
+    </div>
+    ${accordion('help', 'Help me choose', helpChooseBody())}
+    ${state.setup.type === 'own' ? `<div class="own-field"><label for="setup-own">What would you like to do?</label><input class="text-input" id="setup-own" maxlength="160" value="${esc(state.setup.ownIdea)}" placeholder="Sit outside, call a friend…"></div>` : ''}
+    ${hasOpenBoundary ? `<div class="duration-step"><p class="duration-label">Would a time boundary help? <span class="muted">(optional)</span></p>${endingBody()}${reminderBody()}</div>` : ''}
+    ${state.setup.type && !hasOpenBoundary ? `<p class="natural-boundary">This pause already has a natural stopping point: <strong>${Model.endingLabel(state.setup.ending)}</strong>.</p>` : ''}`;
 }
 
 function endingBody() {
@@ -221,35 +226,42 @@ function reminderBody() {
 }
 
 function BackView() {
-  const active = state.activeBreak;
-  const task = active?.intention?.task || '';
-  const next = active?.intention?.next || '';
-  const planned = active && Model.isTimed(active.ending)
-    ? `<p class="return-plan">You planned about ${active.ending} minutes.</p>` : '';
   return `<main class="view" data-view="back">
-    <section class="card return-card">
-      <div class="label">Your way back <button class="edit-link" data-action="edit-return">Edit</button></div>
-      <div class="return-row"><span>You were doing</span><strong>${esc(task) || 'No task note was set'}</strong></div>
-      <div class="return-row"><span>Next step</span><strong>${esc(next) || 'Choose one when you’re ready'}</strong></div>
-      ${planned}
-    </section>
-    <div class="spacer-24"></div>
-    <h1>How would you like to continue?</h1>
+    ${decisionPath('choose')}
+    <div class="eyebrow"><span class="eyebrow-dot"></span>A decision point</div>
+    <h1>What feels right<br>from here?</h1>
+    <p class="lede">Every option is valid. You do not need to justify this moment.</p>
     <div class="outcome-grid" aria-label="What to do next">
-      ${Model.OUTCOMES.map(item => `<button class="equal-option" data-action="outcome" data-value="${item.id}">${item.label}</button>`).join('')}
+      ${Model.OUTCOMES.map(item => `<button class="equal-option" data-action="outcome" data-value="${item.id}"><strong>${item.label}</strong><span>${item.detail}</span></button>`).join('')}
     </div>
     ${state.backChoice === 'plan' ? planPanel() : ''}
-    ${data.settings.optionalNotes ? QuickNote() : ''}
+  </main>`;
+}
+
+function ResumeView() {
+  return `<main class="view" data-view="resume">
+    ${decisionPath('choose')}
+    <div class="eyebrow"><span class="eyebrow-dot"></span>Return to study</div>
+    <h1>Choose one small<br>way back.</h1>
+    <p class="lede">A next step can make restarting easier, but it is entirely optional.</p>
+    <section class="card resume-card">
+      <div class="field">
+        <label for="resume-next">When I return, I could start with <span class="muted">(optional)</span></label>
+        <input class="text-input" id="resume-next" maxlength="240" value="${esc(state.resumeDraft || '')}" placeholder="Open the first question and write one sentence">
+      </div>
+      <p class="help">Saved only if you choose to continue with this note.</p>
+    </section>
+    <div class="start-row"><button class="primary" data-action="resume-study">Return to study</button><button class="text-button" data-action="back-view">Go back</button></div>
   </main>`;
 }
 
 function planPanel() {
   return `<section class="card plan-panel">
-    <h2>Change my plan</h2>
-    <p class="help">No explanation needed.</p>
-    <div class="field"><label for="plan-task">What I’m doing</label><input class="text-input" id="plan-task" maxlength="240" value="${esc(state.planDraft.task)}"></div>
-    <div class="field"><label for="plan-next">Next step</label><input class="text-input" id="plan-next" maxlength="240" value="${esc(state.planDraft.next)}"></div>
-    <div class="button-row"><button class="secondary-button" data-action="save-plan">Save</button><button class="text-button" data-action="cancel-plan">Cancel</button></div>
+    <h2>Change the plan</h2>
+    <p class="help">Make it smaller, simpler, or leave it for another day. No explanation needed.</p>
+    <div class="field"><label for="plan-task">My focus</label><input class="text-input" id="plan-task" maxlength="240" value="${esc(state.planDraft.task)}"></div>
+    <div class="field"><label for="plan-next">One small step</label><input class="text-input" id="plan-next" maxlength="240" value="${esc(state.planDraft.next)}"></div>
+    <div class="button-row"><button class="secondary-button" data-action="save-plan">Save this cue</button><button class="text-button" data-action="cancel-plan">Cancel</button></div>
   </section>`;
 }
 
@@ -291,9 +303,17 @@ function SummaryView() {
 function EndView() {
   return `<main class="view closed-message" data-view="end">
     <div class="eyebrow"><span class="eyebrow-dot"></span>Study closed</div>
-    <h1>Study closed.</h1>
-    <p class="lede">Pick it up whenever you like.</p>
-    <div class="start-row" style="justify-content:center"><button class="primary" data-action="done">Done</button></div>
+    <h1>That is enough<br>for today.</h1>
+    <p class="lede">You can simply finish, or leave one gentle cue for next time.</p>
+    <section class="card finish-card">
+      <div class="field">
+        <label for="finish-next">Next time, I could start with <span class="muted">(optional)</span></label>
+        <input class="text-input" id="finish-next" maxlength="240" value="${esc(state.planDraft.next)}" placeholder="Open the outline and choose one heading">
+      </div>
+      ${settingToggle('quiet-reminders', 'Allow one quiet reminder on a future timed pause', 'Off is just as valid. This never creates a study reminder.', data.settings.quietReminders)}
+      <p class="help">No future study notification is scheduled from this screen.</p>
+    </section>
+    <div class="start-row"><button class="primary" data-action="finish-today">Finish for today</button><button class="text-button" data-action="back-view">Go back</button></div>
   </main>`;
 }
 
@@ -304,6 +324,7 @@ function render(preserveFocus = false) {
   if (state.view === 'setup') content = SetupView();
   if (state.view === 'break') content = BreakView();
   if (state.view === 'back') content = BackView();
+  if (state.view === 'resume') content = ResumeView();
   if (state.view === 'summary') content = SummaryView();
   if (state.view === 'end') content = EndView();
   shell(content);
@@ -316,12 +337,11 @@ function ControlsPanel() {
   return `<div class="panel-backdrop" data-action="close-controls">
     <aside class="side-panel" aria-label="Controls and privacy" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
       <div class="panel-head"><h2>Controls &amp; privacy</h2><button class="icon-button" data-action="close-controls" aria-label="Close controls">${icon('x')}</button></div>
-      <section class="panel-section"><h3>What this uses</h3><p>Your task note, study activity, reason for fatigue, rest choice, stopping point, and notes you save. Nothing else.</p></section>
-      <section class="panel-section"><h3>What’s shared</h3><p>Nothing. Private to you on this browser profile.</p></section>
+      <section class="panel-section"><h3>What this uses</h3><p>Only the notes, pause choices, and reflections you choose to save in this browser. It never reads your screen, apps, browsing, or notifications.</p></section>
+      <section class="panel-section"><h3>What’s shared</h3><p>Nothing. This prototype has no account, analytics, or cloud storage.</p></section>
       <section class="panel-section">
         ${settingToggle('pause-support', 'Pause support this session', 'Break buttons keep working.', supportPaused)}
         ${settingToggle('quiet-reminders', 'Quiet reminders', 'Off by default. One silent reminder at most.', data.settings.quietReminders)}
-        ${settingToggle('optional-notes', 'Optional notes', 'Show the private note card after a break.', data.settings.optionalNotes)}
         ${settingToggle('library-mode', 'Library mode', 'Dimmer colours. Page-only reminders. No animation.', data.settings.libraryMode)}
         ${permissionExplain && !data.settings.libraryMode ? `<div class="permission-card">To show one reminder after you leave this tab, Pause needs notification permission.<div class="permission-actions"><button class="secondary-button" data-action="allow-notification">Allow notification</button><button class="text-button" data-action="page-only">Use page only</button></div></div>` : ''}
       </section>
@@ -341,11 +361,7 @@ function settingToggle(id, title, help, checked) {
 function ResearcherPanel() {
   return `<section class="researcher-panel" aria-label="Researcher mode">
     <div class="panel-head"><div><h2>Researcher mode</h2><p>Usability-testing controls. Stored locally and clearly separated from student notes.</p></div><button class="icon-button" data-action="close-researcher" aria-label="Close researcher mode">${icon('x')}</button></div>
-    <div class="research-options">
-      <button class="research-choice" data-action="research-version" data-value="A" aria-pressed="${data.researcher.version === 'A'}"><strong>Version A: One-click</strong><br><span class="small">Break starts immediately.</span></button>
-      <button class="research-choice" data-action="research-version" data-value="B" aria-pressed="${data.researcher.version === 'B'}"><strong>Version B: Set up first</strong><br><span class="small">Choose rest and ending before starting.</span></button>
-    </div>
-    ${settingToggle('research-log', 'Record research log', 'Version, optional opening, return time and selected outcome.', data.researcher.logEnabled)}
+    ${settingToggle('research-log', 'Record a usability log', 'Only selected outcome and time to decision. No screen or app data.', data.researcher.logEnabled)}
     <p>${data.researcher.logs.length} local research log${data.researcher.logs.length === 1 ? '' : 's'}.</p>
     <div class="research-actions">
       <button data-action="export-logs">${icon('download')}Export JSON</button>
@@ -362,22 +378,24 @@ function renderPanels() {
 }
 
 function beginBreak() {
-  const clickedAt = Date.now();
   state.setup = Model.restDraft(data);
   state.suggestionsReady = false;
-  openSections.kind = openSections.ending = openSections.reminder = false;
-  forceKindOpen = false;
-  if (data.researcher.version === 'B') {
-    state.researchStartAt = clickedAt;
-    state.view = 'setup';
-    render();
-    return;
-  }
+  openSections.help = openSections.ending = openSections.reminder = false;
+  state.researchStartAt = Date.now();
+  state.view = 'setup';
+  render();
+}
+
+function openDecisionHub() {
+  clearTimeout(reminderTimer);
+  reminderTimer = null;
+  state.setup = Model.restDraft(data);
   state = Model.startBreak(state, data);
-  state.activeBreak.startedAt = clickedAt;
-  forceKindOpen = true;
-  openSections.kind = true;
-  scheduleReminder(true);
+  state.activeBreak.startedAt = Date.now();
+  state.activeBreak.returnedAt = state.activeBreak.startedAt;
+  state.planDraft = { ...state.session };
+  state.backChoice = null;
+  state.view = 'back';
   render();
 }
 
@@ -480,12 +498,11 @@ async function allowNotification() {
 function returnFromBreak() {
   clearTimeout(reminderTimer);
   reminderTimer = null;
-  document.title = 'Rest Without Scrolling';
+  document.title = 'Pause — intentional study breaks';
   if (state.activeBreak && !state.activeBreak.returnedAt) state.activeBreak.returnedAt = Date.now();
   state.view = 'back';
   state.planDraft = { ...state.session };
   state.backChoice = null;
-  forceKindOpen = false;
   render();
 }
 
@@ -499,16 +516,6 @@ function chooseOutcome(outcome) {
     render();
     return;
   }
-  if (outcome === 'different') {
-    state.view = 'break';
-    state.setup.type = '';
-    state.setup.ownIdea = '';
-    state.suggestionsReady = Boolean(state.setup.activity && state.setup.fatigue);
-    forceKindOpen = true;
-    openSections.kind = true;
-    render();
-    return;
-  }
   if (outcome === 'plan') {
     state.backChoice = 'plan';
     state.planDraft = { ...state.session };
@@ -516,15 +523,38 @@ function chooseOutcome(outcome) {
     return;
   }
   if (outcome === 'study') {
-    state.view = 'study';
-    state.activeBreak = null;
+    state.returnView = 'back';
+    state.resumeDraft = '';
+    state.resumeNoteTouched = false;
+    state.view = 'resume';
     render();
     return;
   }
   if (outcome === 'end') {
+    state.planDraft = { task: state.session.task, next: '' };
+    state.finishNoteTouched = false;
+    state.returnView = 'back';
     state.view = 'end';
     render();
   }
+}
+
+function resumeStudy() {
+  if (state.resumeNoteTouched) updateSession(state.session.task, state.resumeDraft);
+  state.activeBreak = null;
+  state.resumeNoteTouched = false;
+  state.view = 'study';
+  render();
+  showToast('Your next step is ready whenever you are.');
+}
+
+function finishForToday() {
+  if (state.finishNoteTouched) updateSession(state.session.task, state.planDraft.next);
+  state.activeBreak = null;
+  state.finishNoteTouched = false;
+  state.view = 'study';
+  render();
+  showToast('Study is closed for today.');
 }
 
 function recordResearch(outcome) {
@@ -574,7 +604,7 @@ function settingChange(id, checked) {
         state.activeBreak.reminderAt = null;
       }
       state.setup.remind = false;
-      document.title = 'Rest Without Scrolling';
+      document.title = 'Pause — intentional study breaks';
     }
   } else if (id === 'research-log') {
     persist({ ...data, researcher: { ...data.researcher, logEnabled: checked } });
@@ -632,40 +662,26 @@ function exportLogs() {
 }
 
 function handleAction(action, value) {
-  if (action === 'take-break') beginBreak();
+  if (action === 'take-break' || action === 'plan-pause') beginBreak();
+  if (action === 'after-scroll') openDecisionHub();
   if (action === 'start-setup') startSetupBreak();
   if (action === 'cancel-setup') { state.view = 'study'; render(); }
   if (action === 'return') returnFromBreak();
   if (action === 'dismiss-reminder') {
     state.activeBreak.reminded = false;
-    document.title = 'Rest Without Scrolling';
+    document.title = 'Pause — intentional study breaks';
     render(true);
   }
-  if (action === 'activity' || action === 'fatigue') {
-    state.setup[action] = value;
+  if (action === 'help-fatigue') {
+    state.setup.fatigue = value;
     state.setup.type = '';
     state.setup.ownIdea = '';
     state.setup.ending = 'self';
     state.setup.remind = false;
-    state.suggestionsReady = action === 'fatigue' && Boolean(state.setup.activity);
-    syncActiveBreak(true);
     render(true);
   }
-  if (action === 'guide-back') {
-    state.setup.activity = '';
+  if (action === 'clear-help') {
     state.setup.fatigue = '';
-    state.setup.type = '';
-    state.setup.ownIdea = '';
-    state.setup.ending = 'self';
-    state.setup.remind = false;
-    state.suggestionsReady = false;
-    syncActiveBreak(true);
-    render(true);
-  }
-  if (action === 'restart-guide') {
-    state.setup = Model.restDraft(data);
-    state.suggestionsReady = false;
-    syncActiveBreak(true);
     render(true);
   }
   if (action === 'rest-type') {
@@ -682,15 +698,10 @@ function handleAction(action, value) {
     syncActiveBreak(true);
     render(true);
   }
-  if (action === 'use-usual' && data.lastRest) {
-    state.setup = { ...data.lastRest, remind: false };
-    state.suggestionsReady = true;
-    syncActiveBreak(true);
-    render(true);
-  }
   if (action === 'allow-notification') allowNotification();
   if (action === 'page-only') { permissionExplain = false; render(true); }
   if (action === 'outcome') chooseOutcome(value);
+  if (action === 'resume-study') resumeStudy();
   if (action === 'save-plan') {
     updateSession(state.planDraft.task, state.planDraft.next);
     state.backChoice = null;
@@ -715,12 +726,8 @@ function handleAction(action, value) {
   if (action === 'ask-controls-delete') { deleteControlsConfirm = true; renderPanels(); }
   if (action === 'cancel-controls-delete') { deleteControlsConfirm = false; renderPanels(); }
   if (action === 'confirm-delete-history') deleteHistory();
-  if (action === 'done') { state.view = 'study'; state.activeBreak = null; render(); }
+  if (action === 'finish-today' || action === 'done') finishForToday();
   if (action === 'close-researcher') { state.researcherOpen = false; renderPanels(); }
-  if (action === 'research-version') {
-    persist({ ...data, researcher: { ...data.researcher, version: value } });
-    renderPanels();
-  }
   if (action === 'export-logs') exportLogs();
   if (action === 'delete-logs') {
     persist({ ...data, researcher: { ...data.researcher, logs: [] } });
@@ -739,14 +746,17 @@ document.addEventListener('click', event => {
 
 document.addEventListener('input', event => {
   const element = event.target;
-  if (element.id === 'study-task' || element.id === 'study-next') {
-    const task = document.querySelector('#study-task')?.value || '';
-    const next = document.querySelector('#study-next')?.value || '';
-    updateSession(task, next);
-  }
   if (element.id === 'setup-own' || element.id === 'break-own') {
     state.setup.ownIdea = element.value;
     syncActiveBreak(false);
+  }
+  if (element.id === 'finish-next') {
+    state.planDraft.next = element.value.slice(0, 240);
+    state.finishNoteTouched = true;
+  }
+  if (element.id === 'resume-next') {
+    state.resumeDraft = element.value.slice(0, 240);
+    state.resumeNoteTouched = true;
   }
   if (element.id === 'plan-task') state.planDraft.task = element.value;
   if (element.id === 'plan-next') state.planDraft.next = element.value;
@@ -768,7 +778,7 @@ document.addEventListener('change', event => {
     state.note.saved = false;
     render(true);
   }
-  if (['pause-support', 'quiet-reminders', 'optional-notes', 'library-mode', 'research-log'].includes(element.id)) {
+  if (['pause-support', 'quiet-reminders', 'library-mode', 'research-log'].includes(element.id)) {
     settingChange(element.id, element.checked);
   }
 });

@@ -2,8 +2,8 @@
   'use strict';
 
   const KEY = 'rest-without-scrolling-v3';
-  const DEFAULT_TASK = 'Essay draft, intro';
-  const DEFAULT_NEXT = 'Write the first sentence of paragraph 2';
+  const DEFAULT_TASK = '';
+  const DEFAULT_NEXT = '';
 
   function defaults() {
     return {
