@@ -17,10 +17,10 @@ function memoryStorage() {
   };
 }
 
-test('new local data is seeded for an immediate demo and has no history', () => {
+test('new local data starts without requiring an intention or a return cue', () => {
   const data = Store.defaults();
-  assert.equal(data.session.task, 'Essay draft, intro');
-  assert.equal(data.session.next, 'Write the first sentence of paragraph 2');
+  assert.equal(data.session.task, '');
+  assert.equal(data.session.next, '');
   assert.equal(data.settings.quietReminders, false);
   assert.equal(data.settings.optionalNotes, true);
   assert.equal(data.history.length, 0);
@@ -134,12 +134,13 @@ test('phone-without-end insight also waits for three saved notes', () => {
   assert.ok(cards.some(card => /2 of 3/.test(card.text)));
 });
 
-test('the implementation exposes the requested component structure and five equal outcomes', () => {
+test('the implementation exposes the intentional-pause component structure and four equal outcomes', () => {
   for (const name of ['StudyView','BreakView','BackView','SummaryView','ControlsPanel','ResearcherPanel']) {
     assert.match(source, new RegExp('function ' + name + '\\('));
   }
   Model.OUTCOMES.forEach(item => assert.match(source, new RegExp(item.id)));
-  assert.equal(Model.OUTCOMES.length, 5);
+  assert.equal(Model.OUTCOMES.length, 4);
+  assert.deepEqual(Model.OUTCOMES.map(item => item.id).sort(), ['end', 'keep', 'plan', 'study']);
 });
 
 test('choosing a suggestion sets its ending in the same interaction', () => {
@@ -147,11 +148,14 @@ test('choosing a suggestion sets its ending in the same interaction', () => {
   assert.match(source, /Model\.endingLabel\(item\.ending\)/);
 });
 
-test('guided rest flow asks about activity and fatigue before suggestions', () => {
-  assert.match(source, /What were you doing\?/);
-  assert.match(source, /What feels tired\?/);
-  assert.match(source, /Three ideas for this break/);
-  assert.match(source, /How long\?/);
+test('two entry paths lead to a simple pause picker or the shared decision hub', () => {
+  assert.match(source, /I want to take a break/);
+  assert.match(source, /I’ve been scrolling for a while/);
+  assert.match(source, /How would you like to take a break\?/);
+  assert.match(source, /Help me choose/);
+  assert.match(source, /function openDecisionHub\(/);
+  assert.match(source, /function ResumeView\(/);
+  assert.match(source, /Would a time boundary help\?/);
   assert.doesNotMatch(source, /Show three suggestions/);
 });
 
@@ -174,10 +178,10 @@ test('researcher mode records only the declared usability fields and exports JSO
 test('copy, assets and styling satisfy the no-network and accessibility constraints', () => {
   assert.doesNotMatch(html, /<(?:script|link)[^>]+(?:src|href)="https?:\/\//i);
   assert.doesNotMatch(source + html, /distracted|wasted|back on track|failed|you should|don’t forget|don't forget/i);
-  assert.match(css, /--bg: #F6F4EF/);
-  assert.match(css, /--sage: #7FA48F/);
-  assert.match(css, /--sky: #A9C4D6/);
-  assert.match(css, /--radius: 20px/);
+  assert.match(css, /--bg: #F4FBF8/);
+  assert.match(css, /--sage: #69B7A2/);
+  assert.match(css, /--sky: #9FD5E5/);
+  assert.match(css, /--radius: 22px/);
   assert.match(css, /min-height: 44px/);
   assert.match(css, /prefers-reduced-motion/);
   for (const asset of ['style.css','model.js','storage.js','app.js']) assert.match(html, new RegExp(asset.replace('.', '\\.')));
